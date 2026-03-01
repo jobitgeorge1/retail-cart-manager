@@ -24,6 +24,12 @@ body {
   padding: 24px;
 }
 
+.app-page {
+  background:
+    linear-gradient(rgba(7, 20, 35, 0.42), rgba(8, 30, 32, 0.35)),
+    url("https://images.unsplash.com/photo-1556742208-999815fca738?auto=format&fit=crop&w=2200&q=80") center/cover fixed no-repeat;
+}
+
 .container {
   max-width: 980px;
   margin: 0 auto;
@@ -98,7 +104,7 @@ h1 {
 
 .row {
   display: grid;
-  grid-template-columns: 1fr 180px 140px auto;
+  grid-template-columns: 1.2fr 1fr 1fr 180px 140px auto;
   gap: 10px;
   margin-bottom: 10px;
   align-items: center;

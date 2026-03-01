@@ -18,6 +18,8 @@ const viewPriceList = document.getElementById("viewPriceList");
 const viewCart = document.getElementById("viewCart");
 
 const newItemName = document.getElementById("newItemName");
+const newItemBrand = document.getElementById("newItemBrand");
+const newItemStore = document.getElementById("newItemStore");
 const newItemSize = document.getElementById("newItemSize");
 const newItemPrice = document.getElementById("newItemPrice");
 const addPriceItemBtn = document.getElementById("addPriceItemBtn");
@@ -30,6 +32,8 @@ const addCartRowBtn = document.getElementById("addCartRowBtn");
 const cartTotal = document.getElementById("cartTotal");
 
 const quickItemName = document.getElementById("quickItemName");
+const quickItemBrand = document.getElementById("quickItemBrand");
+const quickItemStore = document.getElementById("quickItemStore");
 const quickItemSize = document.getElementById("quickItemSize");
 const quickItemPrice = document.getElementById("quickItemPrice");
 const quickAddBtn = document.getElementById("quickAddBtn");
@@ -49,8 +53,16 @@ menuCart.addEventListener("click", () => switchView("cart"));
 logoutBtn.addEventListener("click", logout);
 
 addPriceItemBtn.addEventListener("click", () => {
-  addPriceListItem(newItemName.value, newItemSize.value, parseFloat(newItemPrice.value));
+  addPriceListItem(
+    newItemName.value,
+    newItemSize.value,
+    parseFloat(newItemPrice.value),
+    newItemBrand.value,
+    newItemStore.value
+  );
   newItemName.value = "";
+  newItemBrand.value = "";
+  newItemStore.value = "";
   newItemSize.value = "";
   newItemPrice.value = "";
   newItemName.focus();
@@ -63,7 +75,13 @@ addCartRowBtn.addEventListener("click", () => {
 });
 
 quickAddBtn.addEventListener("click", () => {
-  const item = addPriceListItem(quickItemName.value, quickItemSize.value, parseFloat(quickItemPrice.value));
+  const item = addPriceListItem(
+    quickItemName.value,
+    quickItemSize.value,
+    parseFloat(quickItemPrice.value),
+    quickItemBrand.value,
+    quickItemStore.value
+  );
   if (!item) return;
 
   let focusQtyIndex = null;
@@ -102,9 +120,11 @@ function switchView(view) {
   viewCart.classList.toggle("hidden", isPriceList);
 }
 
-function addPriceListItem(name, size, price) {
+function addPriceListItem(name, size, price, brand = "", store = "") {
   const cleanedName = String(name || "").trim();
   const cleanedSize = String(size || "").trim();
+  const cleanedBrand = String(brand || "").trim();
+  const cleanedStore = String(store || "").trim();
   if (!cleanedName) {
     alert("Please enter item name.");
     return null;
@@ -118,18 +138,22 @@ function addPriceListItem(name, size, price) {
     return null;
   }
 
-  const exists = state.priceList.some((item) =>
-    item.name.toLowerCase() === cleanedName.toLowerCase() &&
-    String(item.size || "").toLowerCase() === cleanedSize.toLowerCase()
-  );
+  const exists = state.priceList.some((item) => isDuplicateByIdentity(item, {
+    name: cleanedName,
+    size: cleanedSize,
+    brand: cleanedBrand,
+    store: cleanedStore
+  }));
   if (exists) {
-    alert("Item with the same size already exists in price list.");
+    alert("Item with same name, size, brand and store already exists.");
     return null;
   }
 
   const item = {
     id: crypto.randomUUID(),
     name: cleanedName,
+    brand: cleanedBrand,
+    store: cleanedStore,
     size: cleanedSize,
     price: roundMoney(price)
   };
@@ -147,6 +171,8 @@ function openQuickAddModal(searchText, rowIndex) {
   const split = text.split("-").map((x) => x.trim()).filter(Boolean);
 
   quickItemName.value = split[0] || text || "";
+  quickItemBrand.value = "";
+  quickItemStore.value = "";
   quickItemSize.value = split.length > 1 ? split.slice(1).join(" - ") : "";
   quickItemPrice.value = "";
 
@@ -158,6 +184,8 @@ function openQuickAddModal(searchText, rowIndex) {
 function closeQuickAddModal() {
   quickAddModal.classList.add("hidden");
   quickItemName.value = "";
+  quickItemBrand.value = "";
+  quickItemStore.value = "";
   quickItemSize.value = "";
   quickItemPrice.value = "";
   pendingQuickAddRowIndex = null;
@@ -179,6 +207,60 @@ function renderPriceList() {
     const tdName = document.createElement("td");
     tdName.textContent = item.name;
 
+    const tdBrand = document.createElement("td");
+    const brandInput = document.createElement("input");
+    brandInput.type = "text";
+    brandInput.value = item.brand || "";
+    brandInput.placeholder = "Brand";
+    brandInput.addEventListener("change", (e) => {
+      const nextBrand = String(e.target.value || "").trim();
+      const duplicate = state.priceList.some((x) =>
+        x.id !== item.id &&
+        isDuplicateByIdentity(x, {
+          name: item.name,
+          size: item.size,
+          brand: nextBrand,
+          store: item.store || ""
+        })
+      );
+      if (duplicate) {
+        alert("Another item with same identity already exists.");
+        e.target.value = item.brand || "";
+        return;
+      }
+      item.brand = nextBrand;
+      saveState();
+      renderCart();
+    });
+    tdBrand.appendChild(brandInput);
+
+    const tdStore = document.createElement("td");
+    const storeInput = document.createElement("input");
+    storeInput.type = "text";
+    storeInput.value = item.store || "";
+    storeInput.placeholder = "Store";
+    storeInput.addEventListener("change", (e) => {
+      const nextStore = String(e.target.value || "").trim();
+      const duplicate = state.priceList.some((x) =>
+        x.id !== item.id &&
+        isDuplicateByIdentity(x, {
+          name: item.name,
+          size: item.size,
+          brand: item.brand || "",
+          store: nextStore
+        })
+      );
+      if (duplicate) {
+        alert("Another item with same identity already exists.");
+        e.target.value = item.store || "";
+        return;
+      }
+      item.store = nextStore;
+      saveState();
+      renderCart();
+    });
+    tdStore.appendChild(storeInput);
+
     const tdSize = document.createElement("td");
     const sizeInput = document.createElement("input");
     sizeInput.type = "text";
@@ -191,12 +273,15 @@ function renderPriceList() {
         return;
       }
       const duplicate = state.priceList.some((x) =>
-        x.id !== item.id &&
-        x.name.toLowerCase() === item.name.toLowerCase() &&
-        String(x.size || "").toLowerCase() === nextSize.toLowerCase()
+        x.id !== item.id && isDuplicateByIdentity(x, {
+          name: item.name,
+          size: nextSize,
+          brand: item.brand || "",
+          store: item.store || ""
+        })
       );
       if (duplicate) {
-        alert("Another item with same name and size already exists.");
+        alert("Another item with same identity already exists.");
         e.target.value = item.size || "";
         return;
       }
@@ -239,6 +324,8 @@ function renderPriceList() {
     tdActions.appendChild(removeBtn);
 
     tr.appendChild(tdName);
+    tr.appendChild(tdBrand);
+    tr.appendChild(tdStore);
     tr.appendChild(tdSize);
     tr.appendChild(tdPrice);
     tr.appendChild(tdActions);
@@ -449,7 +536,16 @@ function focusRowQuantityInput(index) {
 function getItemLabel(item) {
   const name = String(item?.name || "").trim();
   const size = String(item?.size || "").trim();
-  return size ? `${name} - ${size}` : name;
+  const brand = String(item?.brand || "").trim();
+  const base = size ? `${name} - ${size}` : name;
+  return brand ? `${base} (${brand})` : base;
+}
+
+function isDuplicateByIdentity(item, identity) {
+  return String(item.name || "").toLowerCase() === String(identity.name || "").toLowerCase()
+    && String(item.size || "").toLowerCase() === String(identity.size || "").toLowerCase()
+    && String(item.brand || "").toLowerCase() === String(identity.brand || "").toLowerCase()
+    && String(item.store || "").toLowerCase() === String(identity.store || "").toLowerCase();
 }
 
 function updateLineTotal(node, row) {
@@ -483,7 +579,12 @@ function loadState() {
     const parsed = JSON.parse(raw);
     return {
       priceList: Array.isArray(parsed.priceList)
-        ? parsed.priceList.map((item) => ({ ...item, size: String(item.size || "").trim() }))
+        ? parsed.priceList.map((item) => ({
+          ...item,
+          brand: String(item.brand || "").trim(),
+          store: String(item.store || "").trim(),
+          size: String(item.size || "").trim()
+        }))
         : [],
       cart: Array.isArray(parsed.cart) ? parsed.cart : []
     };

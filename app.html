@@ -6,7 +6,7 @@
   <title>Retail Cart Manager</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body>
+<body class="app-page">
   <div class="container">
     <div class="topbar">
       <h1>Retail Cart Manager</h1>
@@ -27,11 +27,13 @@
         <h2 class="section-title">Add Item to Price List</h2>
         <div class="row">
           <input id="newItemName" type="text" placeholder="Item name (e.g., Apple)" />
+          <input id="newItemBrand" type="text" placeholder="Brand (optional)" />
+          <input id="newItemStore" type="text" placeholder="Store (optional)" />
           <input id="newItemSize" type="text" placeholder="Size (e.g., 1kg, 500ml)" />
           <input id="newItemPrice" type="number" min="0" step="0.01" placeholder="Price" />
           <button id="addPriceItemBtn">Add Item</button>
         </div>
-        <p class="muted">You can edit size and price anytime in the table below.</p>
+        <p class="muted">You can edit brand, store, size and price anytime in the table below.</p>
       </div>
 
       <div class="card">
@@ -40,6 +42,8 @@
           <thead>
             <tr>
               <th>Item</th>
+              <th>Brand</th>
+              <th>Store</th>
               <th>Size</th>
               <th>Price</th>
               <th>Actions</th>
@@ -66,6 +70,8 @@
       <h2 class="section-title">Add Missing Item</h2>
       <div class="modal-grid">
         <input id="quickItemName" type="text" placeholder="Item name" />
+        <input id="quickItemBrand" type="text" placeholder="Brand (optional)" />
+        <input id="quickItemStore" type="text" placeholder="Store (optional)" />
         <input id="quickItemSize" type="text" placeholder="Size (e.g., 1L, 2kg)" />
         <input id="quickItemPrice" type="number" min="0" step="0.01" placeholder="Price" />
       </div>
