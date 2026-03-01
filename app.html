@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retail Cart Manager</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Retail Cart Manager</h1>
+
+    <div class="card">
+      <h2 class="section-title">Account</h2>
+      <div class="auth-row">
+        <input id="userEmail" type="text" readonly />
+        <div class="auth-actions">
+          <button id="logoutBtn" class="secondary">Logout</button>
+        </div>
+      </div>
+      <p id="syncStatus" class="muted" style="margin-top: 10px;">Checking session...</p>
+    </div>
+
+    <div class="nav">
+      <button id="menuPriceList">Price List</button>
+      <button id="menuCart" class="active">Cart</button>
+    </div>
+
+    <section id="viewPriceList" class="hidden">
+      <div class="card">
+        <h2 class="section-title">Add Item to Price List</h2>
+        <div class="row">
+          <input id="newItemName" type="text" placeholder="Item name (e.g., Apple)" />
+          <input id="newItemSize" type="text" placeholder="Size (e.g., 1kg, 500ml)" />
+          <input id="newItemPrice" type="number" min="0" step="0.01" placeholder="Price" />
+          <button id="addPriceItemBtn">Add Item</button>
+        </div>
+        <p class="muted">You can edit size and price anytime in the table below.</p>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Price List</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Size</th>
+              <th>Price</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="priceListBody"></tbody>
+        </table>
+        <p id="priceListEmpty" class="muted">No items yet. Add your first item above.</p>
+      </div>
+    </section>
+
+    <section id="viewCart">
+      <div class="card">
+        <h2 class="section-title">Cart Items</h2>
+        <div id="cartRows"></div>
+        <button id="addCartRowBtn" class="secondary">+ Add Item to Cart</button>
+        <div class="totals">Cart Total: $<span id="cartTotal">0.00</span></div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Quick Add Missing Item</h2>
+        <div class="row">
+          <input id="quickItemName" type="text" placeholder="Missing item name" />
+          <input id="quickItemSize" type="text" placeholder="Size (e.g., 1L, 2kg)" />
+          <input id="quickItemPrice" type="number" min="0" step="0.01" placeholder="Price" />
+          <button id="quickAddBtn">Quick Add</button>
+        </div>
+        <p class="muted">This directly adds the item to the Price List and makes it available in cart dropdowns.</p>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

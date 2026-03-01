@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retail Cart Manager - Login</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container" style="max-width: 760px;">
+    <h1>Retail Cart Manager</h1>
+
+    <div class="card">
+      <h2 class="section-title">Sign In</h2>
+      <div class="auth-row">
+        <input id="nameInput" type="text" placeholder="Name (for sign up)" />
+        <input id="emailInput" type="email" placeholder="Email" />
+        <input id="passwordInput" type="password" placeholder="Password" />
+      </div>
+      <div class="auth-actions" style="margin-top: 10px;">
+        <button id="loginBtn">Login</button>
+        <button id="signupBtn" class="secondary">Sign Up</button>
+      </div>
+      <p id="status" class="muted" style="margin-top: 10px;">Use your account to sync cart data across devices.</p>
+    </div>
+  </div>
+
+  <script type="module" src="./login.js"></script>
+</body>
+</html>
