@@ -175,12 +175,35 @@ function createCartFromInline(name) {
   focusRowItemInput(0);
 }
 
+function removeCartById(cartId) {
+  if (state.carts.length <= 1) {
+    alert("At least one cart is required.");
+    return;
+  }
+  const target = state.carts.find((c) => c.id === cartId);
+  if (!target) return;
+
+  const ok = confirm(`Delete cart "${target.name}"?`);
+  if (!ok) return;
+
+  state.carts = state.carts.filter((c) => c.id !== cartId);
+  if (state.activeCartId === cartId) {
+    state.activeCartId = state.carts[0]?.id || "";
+  }
+  saveState();
+  renderCartTabs();
+  renderCart();
+}
+
 function renderCartTabs() {
   ensureCarts();
   cartTabs.innerHTML = "";
   const onPriceList = !viewPriceList.classList.contains("hidden");
 
   state.carts.forEach((cart) => {
+    const tabWrap = document.createElement("div");
+    tabWrap.className = "cart-tab-wrap";
+
     const tab = document.createElement("button");
     tab.type = "button";
     tab.className = "secondary cart-tab-btn";
@@ -196,7 +219,20 @@ function renderCartTabs() {
       switchView("cart");
       renderCart();
     });
-    cartTabs.appendChild(tab);
+    tabWrap.appendChild(tab);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "cart-tab-remove";
+    removeBtn.textContent = "×";
+    removeBtn.title = `Delete ${cart.name}`;
+    removeBtn.disabled = state.carts.length <= 1;
+    removeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeCartById(cart.id);
+    });
+    tabWrap.appendChild(removeBtn);
+    cartTabs.appendChild(tabWrap);
   });
 
   if (isAddingCartInline) {
@@ -204,23 +240,28 @@ function renderCartTabs() {
     input.type = "text";
     input.className = "cart-tab-input";
     input.placeholder = "Cart name";
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        createCartFromInline(input.value);
-      } else if (e.key === "Escape") {
-        isAddingCartInline = false;
-        renderCartTabs();
-      }
-    });
-    input.addEventListener("blur", () => {
+    let finalized = false;
+    const finalize = () => {
+      if (finalized) return;
+      finalized = true;
       const value = String(input.value || "").trim();
       if (value) createCartFromInline(value);
       else {
         isAddingCartInline = false;
         renderCartTabs();
       }
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finalize();
+      } else if (e.key === "Escape") {
+        finalized = true;
+        isAddingCartInline = false;
+        renderCartTabs();
+      }
     });
+    input.addEventListener("blur", finalize);
     cartTabs.appendChild(input);
     setTimeout(() => input.focus(), 0);
   }
