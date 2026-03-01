@@ -607,6 +607,7 @@ async function logout() {
 }
 
 async function init() {
+  closeQuickAddModal();
   renderPriceList();
   renderCart();
 

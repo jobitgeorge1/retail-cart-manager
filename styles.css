@@ -369,6 +369,10 @@ th, td {
   z-index: 40;
 }
 
+.modal-overlay.hidden {
+  display: none;
+}
+
 .modal-card {
   width: 100%;
   max-width: 420px;
