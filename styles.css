@@ -104,8 +104,9 @@ h1 {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
+  padding-right: 18px;
 }
 
 .cart-tab-btn {
@@ -116,28 +117,26 @@ h1 {
   text-overflow: ellipsis;
   white-space: nowrap;
   border-radius: 0;
-  padding-right: 24px;
+  padding-right: 8px;
 }
 
 .cart-tab-remove {
   position: absolute;
   right: 5px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 5px;
   border: 0;
   background: transparent;
   color: #94a3b8;
-  width: 16px;
-  min-width: 16px;
+  width: 12px;
+  min-width: 12px;
   padding: 0;
-  font-size: 0.85rem;
+  font-size: 0.72rem;
   line-height: 1;
-  height: 16px;
+  height: 12px;
   border-radius: 999px;
 }
 
 .cart-tab-remove:hover {
-  background: rgba(239, 68, 68, 0.12);
   color: #b91c1c;
 }
 
