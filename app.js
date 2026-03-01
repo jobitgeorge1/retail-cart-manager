@@ -66,16 +66,24 @@ quickAddBtn.addEventListener("click", () => {
   const item = addPriceListItem(quickItemName.value, quickItemSize.value, parseFloat(quickItemPrice.value));
   if (!item) return;
 
+  let focusQtyIndex = null;
   if (pendingQuickAddRowIndex !== null && state.cart[pendingQuickAddRowIndex]) {
     state.cart[pendingQuickAddRowIndex].itemId = item.id;
+    focusQtyIndex = pendingQuickAddRowIndex;
   } else {
     const firstEmptyRow = state.cart.find((row) => !row.itemId);
-    if (firstEmptyRow) firstEmptyRow.itemId = item.id;
-    else state.cart.push({ itemId: item.id, quantity: 1 });
+    if (firstEmptyRow) {
+      firstEmptyRow.itemId = item.id;
+      focusQtyIndex = state.cart.indexOf(firstEmptyRow);
+    } else {
+      state.cart.push({ itemId: item.id, quantity: 1 });
+      focusQtyIndex = state.cart.length - 1;
+    }
   }
   saveState();
   closeQuickAddModal();
   renderCart();
+  focusRowQuantityInput(focusQtyIndex);
 });
 quickAddCancelBtn.addEventListener("click", closeQuickAddModal);
 quickAddModal.addEventListener("click", (e) => {
@@ -257,6 +265,7 @@ function renderCart() {
     const itemInput = document.createElement("input");
     itemInput.type = "text";
     itemInput.className = "combo-input";
+    itemInput.dataset.rowIndex = String(index);
     itemInput.placeholder = state.priceList.length ? "Search or select item..." : "No items in price list";
 
     const toggleBtn = document.createElement("button");
@@ -280,16 +289,18 @@ function renderCart() {
         empty.textContent = "No matching items";
         menu.appendChild(empty);
 
-        const addBtn = document.createElement("button");
-        addBtn.type = "button";
-        addBtn.className = "combo-option";
         const query = String(itemInput.value || "").trim();
-        addBtn.textContent = query ? `+ Add "${query}"` : "+ Add new item";
-        addBtn.addEventListener("click", () => {
-          menu.classList.add("hidden");
-          openQuickAddModal(query, index);
-        });
-        menu.appendChild(addBtn);
+        if (query) {
+          const addBtn = document.createElement("button");
+          addBtn.type = "button";
+          addBtn.className = "combo-option";
+          addBtn.textContent = `+ Add "${query}"`;
+          addBtn.addEventListener("click", () => {
+            menu.classList.add("hidden");
+            openQuickAddModal(query, index);
+          });
+          menu.appendChild(addBtn);
+        }
         return;
       }
 
@@ -327,6 +338,34 @@ function renderCart() {
       openMenu();
     });
     itemInput.addEventListener("focus", openMenu);
+    itemInput.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        openMenu(true);
+        return;
+      }
+      if (e.key !== "Enter") return;
+
+      e.preventDefault();
+      const typedRaw = String(itemInput.value || "").trim();
+      const typed = typedRaw.toLowerCase();
+      const exact = state.priceList.find((item) => getItemLabel(item).toLowerCase() === typed);
+      if (exact) {
+        row.itemId = exact.id;
+        itemInput.value = getItemLabel(exact);
+        saveState();
+        updateCartTotal();
+        menu.classList.add("hidden");
+        focusRowQuantityInput(index);
+        return;
+      }
+
+      const filtered = state.priceList.filter((item) => getItemLabel(item).toLowerCase().includes(typed));
+      if (!filtered.length && typedRaw) {
+        menu.classList.add("hidden");
+        openQuickAddModal(typedRaw, index);
+      }
+    });
     toggleBtn.addEventListener("click", () => {
       if (menu.classList.contains("hidden")) openMenu(true);
       else menu.classList.add("hidden");
@@ -334,6 +373,7 @@ function renderCart() {
 
     const qtyInput = document.createElement("input");
     qtyInput.type = "number";
+    qtyInput.dataset.rowIndex = String(index);
     qtyInput.min = "1";
     qtyInput.step = "1";
     qtyInput.value = String(row.quantity || 1);
@@ -342,6 +382,23 @@ function renderCart() {
       row.quantity = Number.isNaN(val) || val < 1 ? 1 : val;
       saveState();
       updateCartTotal();
+    });
+    qtyInput.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+
+      const val = parseInt(qtyInput.value, 10);
+      row.quantity = Number.isNaN(val) || val < 1 ? 1 : val;
+      saveState();
+      updateCartTotal();
+
+      const nextIndex = index + 1;
+      if (!state.cart[nextIndex]) {
+        state.cart.push({ itemId: "", quantity: 1 });
+        saveState();
+        renderCart();
+      }
+      focusRowItemInput(nextIndex);
     });
 
     const lineTotal = document.createElement("div");
@@ -375,6 +432,18 @@ function renderCart() {
 
 function closeAllCombos() {
   cartRows.querySelectorAll(".combo-menu").forEach((menu) => menu.classList.add("hidden"));
+}
+
+function focusRowItemInput(index) {
+  if (index === null || index === undefined) return;
+  const input = cartRows.querySelector(`.combo-input[data-row-index="${index}"]`);
+  if (input) input.focus();
+}
+
+function focusRowQuantityInput(index) {
+  if (index === null || index === undefined) return;
+  const input = cartRows.querySelector(`input[type="number"][data-row-index="${index}"]`);
+  if (input) input.focus();
 }
 
 function getItemLabel(item) {
