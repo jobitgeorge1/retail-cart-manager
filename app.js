@@ -7,8 +7,10 @@ let isApplyingRemoteState = false;
 let cloudSaveTimer = null;
 let realtimeUnsubscribe = null;
 let currentUser = null;
+let editingItemId = null;
+let pendingQuickAddRowIndex = null;
 
-const userEmail = document.getElementById("userEmail");
+const userName = document.getElementById("userName");
 const logoutBtn = document.getElementById("logoutBtn");
 const syncStatus = document.getElementById("syncStatus");
 
@@ -27,6 +29,11 @@ const addPriceItemBtn = document.getElementById("addPriceItemBtn");
 const priceListBody = document.getElementById("priceListBody");
 const priceListEmpty = document.getElementById("priceListEmpty");
 
+const cartSelector = document.getElementById("cartSelector");
+const newCartName = document.getElementById("newCartName");
+const addCartBtn = document.getElementById("addCartBtn");
+const deleteCartBtn = document.getElementById("deleteCartBtn");
+
 const cartRows = document.getElementById("cartRows");
 const addCartRowBtn = document.getElementById("addCartRowBtn");
 const cartTotal = document.getElementById("cartTotal");
@@ -40,8 +47,6 @@ const quickAddBtn = document.getElementById("quickAddBtn");
 const quickAddModal = document.getElementById("quickAddModal");
 const quickAddCancelBtn = document.getElementById("quickAddCancelBtn");
 
-let pendingQuickAddRowIndex = null;
-
 document.addEventListener("click", (e) => {
   if (!e.target.closest(".combo") && !e.target.closest(".modal-card")) {
     closeAllCombos();
@@ -51,6 +56,42 @@ document.addEventListener("click", (e) => {
 menuPriceList.addEventListener("click", () => switchView("priceList"));
 menuCart.addEventListener("click", () => switchView("cart"));
 logoutBtn.addEventListener("click", logout);
+
+cartSelector.addEventListener("change", () => {
+  state.activeCartId = cartSelector.value;
+  saveState();
+  closeQuickAddModal();
+  renderCartManager();
+  renderCart();
+});
+
+addCartBtn.addEventListener("click", () => {
+  const name = String(newCartName.value || "").trim() || `Cart ${state.carts.length + 1}`;
+  const cart = { id: crypto.randomUUID(), name, items: [] };
+  state.carts.push(cart);
+  state.activeCartId = cart.id;
+  newCartName.value = "";
+  saveState();
+  renderCartManager();
+  renderCart();
+  switchView("cart");
+});
+
+deleteCartBtn.addEventListener("click", () => {
+  if (state.carts.length <= 1) {
+    alert("At least one cart is required.");
+    return;
+  }
+  const active = getActiveCart();
+  const ok = confirm(`Delete cart "${active.name}"?`);
+  if (!ok) return;
+
+  state.carts = state.carts.filter((c) => c.id !== active.id);
+  state.activeCartId = state.carts[0]?.id || "";
+  saveState();
+  renderCartManager();
+  renderCart();
+});
 
 addPriceItemBtn.addEventListener("click", () => {
   addPriceListItem(
@@ -69,9 +110,11 @@ addPriceItemBtn.addEventListener("click", () => {
 });
 
 addCartRowBtn.addEventListener("click", () => {
-  state.cart.push({ itemId: "", quantity: 1 });
+  const active = getActiveCart();
+  active.items.push({ itemId: "", quantity: 1 });
   saveState();
   renderCart();
+  focusRowItemInput(active.items.length - 1);
 });
 
 quickAddBtn.addEventListener("click", () => {
@@ -84,25 +127,29 @@ quickAddBtn.addEventListener("click", () => {
   );
   if (!item) return;
 
+  const active = getActiveCart();
   let focusQtyIndex = null;
-  if (pendingQuickAddRowIndex !== null && state.cart[pendingQuickAddRowIndex]) {
-    state.cart[pendingQuickAddRowIndex].itemId = item.id;
+
+  if (pendingQuickAddRowIndex !== null && active.items[pendingQuickAddRowIndex]) {
+    active.items[pendingQuickAddRowIndex].itemId = item.id;
     focusQtyIndex = pendingQuickAddRowIndex;
   } else {
-    const firstEmptyRow = state.cart.find((row) => !row.itemId);
-    if (firstEmptyRow) {
-      firstEmptyRow.itemId = item.id;
-      focusQtyIndex = state.cart.indexOf(firstEmptyRow);
+    const firstEmpty = active.items.find((row) => !row.itemId);
+    if (firstEmpty) {
+      firstEmpty.itemId = item.id;
+      focusQtyIndex = active.items.indexOf(firstEmpty);
     } else {
-      state.cart.push({ itemId: item.id, quantity: 1 });
-      focusQtyIndex = state.cart.length - 1;
+      active.items.push({ itemId: item.id, quantity: 1 });
+      focusQtyIndex = active.items.length - 1;
     }
   }
+
   saveState();
   closeQuickAddModal();
   renderCart();
   focusRowQuantityInput(focusQtyIndex);
 });
+
 quickAddCancelBtn.addEventListener("click", closeQuickAddModal);
 quickAddModal.addEventListener("click", (e) => {
   if (e.target === quickAddModal) closeQuickAddModal();
@@ -120,11 +167,52 @@ function switchView(view) {
   viewCart.classList.toggle("hidden", isPriceList);
 }
 
+function ensureCarts() {
+  if (!Array.isArray(state.carts)) state.carts = [];
+  state.carts = state.carts.map((cart, idx) => ({
+    id: String(cart.id || crypto.randomUUID()),
+    name: String(cart.name || `Cart ${idx + 1}`).trim() || `Cart ${idx + 1}`,
+    items: Array.isArray(cart.items) ? cart.items : []
+  }));
+
+  if (!state.carts.length) {
+    state.carts.push({ id: crypto.randomUUID(), name: "Default Cart", items: [] });
+  }
+
+  const exists = state.carts.some((c) => c.id === state.activeCartId);
+  if (!exists) state.activeCartId = state.carts[0].id;
+}
+
+function getActiveCart() {
+  ensureCarts();
+  let active = state.carts.find((c) => c.id === state.activeCartId);
+  if (!active) {
+    state.activeCartId = state.carts[0].id;
+    active = state.carts[0];
+  }
+  if (!Array.isArray(active.items)) active.items = [];
+  return active;
+}
+
+function renderCartManager() {
+  ensureCarts();
+  cartSelector.innerHTML = "";
+  state.carts.forEach((cart) => {
+    const option = document.createElement("option");
+    option.value = cart.id;
+    option.textContent = cart.name;
+    if (cart.id === state.activeCartId) option.selected = true;
+    cartSelector.appendChild(option);
+  });
+  deleteCartBtn.disabled = state.carts.length <= 1;
+}
+
 function addPriceListItem(name, size, price, brand = "", store = "") {
   const cleanedName = String(name || "").trim();
   const cleanedSize = String(size || "").trim();
   const cleanedBrand = String(brand || "").trim();
   const cleanedStore = String(store || "").trim();
+
   if (!cleanedName) {
     alert("Please enter item name.");
     return null;
@@ -198,130 +286,145 @@ function renderPriceList() {
     priceListEmpty.style.display = "block";
     return;
   }
-
   priceListEmpty.style.display = "none";
 
   state.priceList.forEach((item) => {
     const tr = document.createElement("tr");
+    const isEditing = editingItemId === item.id;
 
     const tdName = document.createElement("td");
-    tdName.textContent = item.name;
-
     const tdBrand = document.createElement("td");
-    const brandInput = document.createElement("input");
-    brandInput.type = "text";
-    brandInput.value = item.brand || "";
-    brandInput.placeholder = "Brand";
-    brandInput.addEventListener("change", (e) => {
-      const nextBrand = String(e.target.value || "").trim();
-      const duplicate = state.priceList.some((x) =>
-        x.id !== item.id &&
-        isDuplicateByIdentity(x, {
-          name: item.name,
-          size: item.size,
-          brand: nextBrand,
-          store: item.store || ""
-        })
-      );
-      if (duplicate) {
-        alert("Another item with same identity already exists.");
-        e.target.value = item.brand || "";
-        return;
-      }
-      item.brand = nextBrand;
-      saveState();
-      renderCart();
-    });
-    tdBrand.appendChild(brandInput);
-
     const tdStore = document.createElement("td");
-    const storeInput = document.createElement("input");
-    storeInput.type = "text";
-    storeInput.value = item.store || "";
-    storeInput.placeholder = "Store";
-    storeInput.addEventListener("change", (e) => {
-      const nextStore = String(e.target.value || "").trim();
-      const duplicate = state.priceList.some((x) =>
-        x.id !== item.id &&
-        isDuplicateByIdentity(x, {
-          name: item.name,
-          size: item.size,
-          brand: item.brand || "",
-          store: nextStore
-        })
-      );
-      if (duplicate) {
-        alert("Another item with same identity already exists.");
-        e.target.value = item.store || "";
-        return;
-      }
-      item.store = nextStore;
-      saveState();
-      renderCart();
-    });
-    tdStore.appendChild(storeInput);
-
     const tdSize = document.createElement("td");
-    const sizeInput = document.createElement("input");
-    sizeInput.type = "text";
-    sizeInput.value = item.size || "";
-    sizeInput.placeholder = "Size";
-    sizeInput.addEventListener("change", (e) => {
-      const nextSize = String(e.target.value || "").trim();
-      if (!nextSize) {
-        e.target.value = item.size || "";
-        return;
-      }
-      const duplicate = state.priceList.some((x) =>
-        x.id !== item.id && isDuplicateByIdentity(x, {
-          name: item.name,
-          size: nextSize,
-          brand: item.brand || "",
-          store: item.store || ""
-        })
-      );
-      if (duplicate) {
-        alert("Another item with same identity already exists.");
-        e.target.value = item.size || "";
-        return;
-      }
-      item.size = nextSize;
-      saveState();
-      renderCart();
-    });
-    tdSize.appendChild(sizeInput);
-
     const tdPrice = document.createElement("td");
-    const priceInput = document.createElement("input");
-    priceInput.type = "number";
-    priceInput.min = "0";
-    priceInput.step = "0.01";
-    priceInput.value = item.price.toFixed(2);
-    priceInput.addEventListener("change", (e) => {
-      const nextPrice = parseFloat(e.target.value);
-      if (Number.isNaN(nextPrice) || nextPrice < 0) {
-        e.target.value = item.price.toFixed(2);
-        return;
-      }
-      item.price = roundMoney(nextPrice);
-      saveState();
-      renderCart();
-    });
-    tdPrice.appendChild(priceInput);
+
+    if (isEditing) {
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.value = item.name || "";
+
+      const brandInput = document.createElement("input");
+      brandInput.type = "text";
+      brandInput.value = item.brand || "";
+
+      const storeInput = document.createElement("input");
+      storeInput.type = "text";
+      storeInput.value = item.store || "";
+
+      const sizeInput = document.createElement("input");
+      sizeInput.type = "text";
+      sizeInput.value = item.size || "";
+
+      const priceInput = document.createElement("input");
+      priceInput.type = "number";
+      priceInput.min = "0";
+      priceInput.step = "0.01";
+      priceInput.value = Number(item.price || 0).toFixed(2);
+
+      tdName.appendChild(nameInput);
+      tdBrand.appendChild(brandInput);
+      tdStore.appendChild(storeInput);
+      tdSize.appendChild(sizeInput);
+      tdPrice.appendChild(priceInput);
+
+      tr._editFields = { nameInput, brandInput, storeInput, sizeInput, priceInput };
+    } else {
+      tdName.textContent = item.name;
+      tdBrand.textContent = item.brand || "-";
+      tdStore.textContent = item.store || "-";
+      tdSize.textContent = item.size;
+      tdPrice.textContent = `$${Number(item.price || 0).toFixed(2)}`;
+    }
 
     const tdActions = document.createElement("td");
-    const removeBtn = document.createElement("button");
-    removeBtn.className = "danger";
-    removeBtn.textContent = "Delete";
-    removeBtn.addEventListener("click", () => {
-      state.priceList = state.priceList.filter((x) => x.id !== item.id);
-      state.cart = state.cart.map((row) => row.itemId === item.id ? { ...row, itemId: "" } : row);
-      saveState();
-      renderPriceList();
-      renderCart();
-    });
+    tdActions.className = "actions-inline";
 
-    tdActions.appendChild(removeBtn);
+    if (isEditing) {
+      const saveBtn = document.createElement("button");
+      saveBtn.textContent = "Save";
+      saveBtn.addEventListener("click", () => {
+        const fields = tr._editFields;
+        const nextName = String(fields.nameInput.value || "").trim();
+        const nextBrand = String(fields.brandInput.value || "").trim();
+        const nextStore = String(fields.storeInput.value || "").trim();
+        const nextSize = String(fields.sizeInput.value || "").trim();
+        const nextPrice = parseFloat(fields.priceInput.value);
+
+        if (!nextName) {
+          alert("Please enter item name.");
+          return;
+        }
+        if (!nextSize) {
+          alert("Please enter item size.");
+          return;
+        }
+        if (Number.isNaN(nextPrice) || nextPrice < 0) {
+          alert("Please enter a valid price.");
+          return;
+        }
+
+        const duplicate = state.priceList.some((x) =>
+          x.id !== item.id && isDuplicateByIdentity(x, {
+            name: nextName,
+            size: nextSize,
+            brand: nextBrand,
+            store: nextStore
+          })
+        );
+        if (duplicate) {
+          alert("Another item with same identity already exists.");
+          return;
+        }
+
+        item.name = nextName;
+        item.brand = nextBrand;
+        item.store = nextStore;
+        item.size = nextSize;
+        item.price = roundMoney(nextPrice);
+
+        editingItemId = null;
+        saveState();
+        renderPriceList();
+        renderCart();
+      });
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "secondary";
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.addEventListener("click", () => {
+        editingItemId = null;
+        renderPriceList();
+      });
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "danger";
+      removeBtn.textContent = "Delete";
+      removeBtn.addEventListener("click", () => {
+        deletePriceItem(item.id);
+      });
+
+      tdActions.appendChild(saveBtn);
+      tdActions.appendChild(cancelBtn);
+      tdActions.appendChild(removeBtn);
+    } else {
+      const editBtn = document.createElement("button");
+      editBtn.className = "secondary";
+      editBtn.textContent = "Edit";
+      editBtn.addEventListener("click", () => {
+        editingItemId = item.id;
+        renderPriceList();
+      });
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "danger";
+      removeBtn.textContent = "Delete";
+      removeBtn.addEventListener("click", () => {
+        deletePriceItem(item.id);
+      });
+
+      tdActions.appendChild(editBtn);
+      tdActions.appendChild(removeBtn);
+    }
 
     tr.appendChild(tdName);
     tr.appendChild(tdBrand);
@@ -333,14 +436,26 @@ function renderPriceList() {
   });
 }
 
+function deletePriceItem(itemId) {
+  state.priceList = state.priceList.filter((x) => x.id !== itemId);
+  state.carts.forEach((cart) => {
+    cart.items = cart.items.map((row) => row.itemId === itemId ? { ...row, itemId: "" } : row);
+  });
+  if (editingItemId === itemId) editingItemId = null;
+  saveState();
+  renderPriceList();
+  renderCart();
+}
+
 function renderCart() {
   cartRows.innerHTML = "";
+  const active = getActiveCart();
 
-  if (!state.cart.length) {
-    state.cart.push({ itemId: "", quantity: 1 });
+  if (!active.items.length) {
+    active.items.push({ itemId: "", quantity: 1 });
   }
 
-  state.cart.forEach((row, index) => {
+  active.items.forEach((row, index) => {
     const container = document.createElement("div");
     container.className = "cart-row";
 
@@ -376,15 +491,15 @@ function renderCart() {
         empty.textContent = "No matching items";
         menu.appendChild(empty);
 
-        const query = String(itemInput.value || "").trim();
-        if (query) {
+        const typedQuery = String(itemInput.value || "").trim();
+        if (typedQuery) {
           const addBtn = document.createElement("button");
           addBtn.type = "button";
           addBtn.className = "combo-option";
-          addBtn.textContent = `+ Add "${query}"`;
+          addBtn.textContent = `+ Add "${typedQuery}"`;
           addBtn.addEventListener("click", () => {
             menu.classList.add("hidden");
-            openQuickAddModal(query, index);
+            openQuickAddModal(typedQuery, index);
           });
           menu.appendChild(addBtn);
         }
@@ -424,6 +539,7 @@ function renderCart() {
       updateCartTotal();
       openMenu();
     });
+
     itemInput.addEventListener("focus", openMenu);
     itemInput.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown") {
@@ -453,6 +569,7 @@ function renderCart() {
         openQuickAddModal(typedRaw, index);
       }
     });
+
     toggleBtn.addEventListener("click", () => {
       if (menu.classList.contains("hidden")) openMenu(true);
       else menu.classList.add("hidden");
@@ -464,12 +581,14 @@ function renderCart() {
     qtyInput.min = "1";
     qtyInput.step = "1";
     qtyInput.value = String(row.quantity || 1);
+
     qtyInput.addEventListener("input", (e) => {
       const val = parseInt(e.target.value, 10);
       row.quantity = Number.isNaN(val) || val < 1 ? 1 : val;
       saveState();
       updateCartTotal();
     });
+
     qtyInput.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       e.preventDefault();
@@ -480,8 +599,8 @@ function renderCart() {
       updateCartTotal();
 
       const nextIndex = index + 1;
-      if (!state.cart[nextIndex]) {
-        state.cart.push({ itemId: "", quantity: 1 });
+      if (!active.items[nextIndex]) {
+        active.items.push({ itemId: "", quantity: 1 });
         saveState();
         renderCart();
       }
@@ -495,7 +614,7 @@ function renderCart() {
     removeBtn.className = "secondary";
     removeBtn.textContent = "Remove";
     removeBtn.addEventListener("click", () => {
-      state.cart.splice(index, 1);
+      active.items.splice(index, 1);
       saveState();
       renderCart();
     });
@@ -560,9 +679,10 @@ function updateLineTotal(node, row) {
 }
 
 function updateCartTotal() {
+  const active = getActiveCart();
   let total = 0;
   const nodes = cartRows.querySelectorAll(".cart-row .muted");
-  state.cart.forEach((row, idx) => {
+  active.items.forEach((row, idx) => {
     total += updateLineTotal(nodes[idx], row);
   });
   cartTotal.textContent = roundMoney(total).toFixed(2);
@@ -572,24 +692,66 @@ function roundMoney(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+function migrateState(parsed) {
+  const migrated = {
+    priceList: Array.isArray(parsed?.priceList)
+      ? parsed.priceList.map((item) => ({
+        ...item,
+        brand: String(item.brand || "").trim(),
+        store: String(item.store || "").trim(),
+        size: String(item.size || "").trim()
+      }))
+      : [],
+    carts: [],
+    activeCartId: ""
+  };
+
+  if (Array.isArray(parsed?.carts)) {
+    migrated.carts = parsed.carts.map((cart, idx) => ({
+      id: String(cart.id || crypto.randomUUID()),
+      name: String(cart.name || `Cart ${idx + 1}`).trim() || `Cart ${idx + 1}`,
+      items: Array.isArray(cart.items) ? cart.items : []
+    }));
+    migrated.activeCartId = String(parsed.activeCartId || "");
+  } else {
+    const oldCart = Array.isArray(parsed?.cart) ? parsed.cart : [];
+    const defaultId = crypto.randomUUID();
+    migrated.carts = [{ id: defaultId, name: "Default Cart", items: oldCart }];
+    migrated.activeCartId = defaultId;
+  }
+
+  if (!migrated.carts.length) {
+    const defaultId = crypto.randomUUID();
+    migrated.carts = [{ id: defaultId, name: "Default Cart", items: [] }];
+    migrated.activeCartId = defaultId;
+  }
+
+  if (!migrated.carts.some((c) => c.id === migrated.activeCartId)) {
+    migrated.activeCartId = migrated.carts[0].id;
+  }
+
+  return migrated;
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { priceList: [], cart: [] };
-    const parsed = JSON.parse(raw);
-    return {
-      priceList: Array.isArray(parsed.priceList)
-        ? parsed.priceList.map((item) => ({
-          ...item,
-          brand: String(item.brand || "").trim(),
-          store: String(item.store || "").trim(),
-          size: String(item.size || "").trim()
-        }))
-        : [],
-      cart: Array.isArray(parsed.cart) ? parsed.cart : []
-    };
+    if (!raw) {
+      const defaultId = crypto.randomUUID();
+      return {
+        priceList: [],
+        carts: [{ id: defaultId, name: "Default Cart", items: [] }],
+        activeCartId: defaultId
+      };
+    }
+    return migrateState(JSON.parse(raw));
   } catch {
-    return { priceList: [], cart: [] };
+    const defaultId = crypto.randomUUID();
+    return {
+      priceList: [],
+      carts: [{ id: defaultId, name: "Default Cart", items: [] }],
+      activeCartId: defaultId
+    };
   }
 }
 
@@ -600,27 +762,39 @@ function saveState() {
 
 function applyRemotePayload(payloadText) {
   try {
-    const data = JSON.parse(payloadText);
-    if (!data || !Array.isArray(data.priceList) || !Array.isArray(data.cart)) return;
+    const data = migrateState(JSON.parse(payloadText));
 
     isApplyingRemoteState = true;
     state.priceList.length = 0;
-    state.cart.length = 0;
+    state.carts.length = 0;
+
     data.priceList.forEach((item) => {
       state.priceList.push({
         id: String(item.id || crypto.randomUUID()),
         name: String(item.name || "").trim(),
+        brand: String(item.brand || "").trim(),
+        store: String(item.store || "").trim(),
         size: String(item.size || "").trim(),
         price: roundMoney(Number(item.price || 0))
       });
     });
-    data.cart.forEach((row) => {
-      state.cart.push({
-        itemId: String(row.itemId || ""),
-        quantity: Math.max(1, parseInt(row.quantity, 10) || 1)
+
+    data.carts.forEach((cart, idx) => {
+      state.carts.push({
+        id: String(cart.id || crypto.randomUUID()),
+        name: String(cart.name || `Cart ${idx + 1}`).trim() || `Cart ${idx + 1}`,
+        items: Array.isArray(cart.items) ? cart.items.map((row) => ({
+          itemId: String(row.itemId || ""),
+          quantity: Math.max(1, parseInt(row.quantity, 10) || 1)
+        })) : []
       });
     });
+
+    state.activeCartId = data.activeCartId;
+    ensureCarts();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+    renderCartManager();
     renderPriceList();
     renderCart();
     isApplyingRemoteState = false;
@@ -640,7 +814,11 @@ function queueCloudSave() {
 }
 
 function serializeState() {
-  return JSON.stringify({ priceList: state.priceList, cart: state.cart });
+  return JSON.stringify({
+    priceList: state.priceList,
+    carts: state.carts,
+    activeCartId: state.activeCartId
+  });
 }
 
 async function connectUserSync(userId) {
@@ -709,6 +887,8 @@ async function logout() {
 
 async function init() {
   closeQuickAddModal();
+  ensureCarts();
+  renderCartManager();
   renderPriceList();
   renderCart();
 
@@ -719,7 +899,7 @@ async function init() {
 
   try {
     currentUser = await account.get();
-    userEmail.textContent = currentUser.email;
+    userName.textContent = currentUser.name || currentUser.email;
     setStatus("Connecting cloud sync...");
     await connectUserSync(currentUser.$id);
     setStatus("Cloud sync connected.");

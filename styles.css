@@ -55,9 +55,11 @@ h1 {
   margin-top: 3px;
 }
 
-.account-email {
-  font-size: 0.82rem;
-  color: var(--muted);
+.account-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f8fafc;
+  text-shadow: 0 1px 2px rgba(2, 8, 23, 0.35);
 }
 
 .account-logout {
@@ -158,6 +160,13 @@ th, td {
   vertical-align: middle;
 }
 
+td.actions-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .muted { color: var(--muted); font-size: 0.92rem; }
 
 .hidden { display: none; }
@@ -253,6 +262,30 @@ th, td {
   font-weight: 700;
   font-size: 1.15rem;
   margin-top: 10px;
+}
+
+.cart-manager {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.cart-manager-left {
+  min-width: 220px;
+}
+
+.cart-manager-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.cart-manager-right input {
+  min-width: 260px;
 }
 
 .auth-row {
@@ -412,4 +445,6 @@ th, td {
   .topbar { flex-direction: column; align-items: flex-start; }
   .account-corner { margin-top: 0; }
   .modal-actions { display: grid; grid-template-columns: 1fr; }
+  .cart-manager-right { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .cart-manager-right input { min-width: 0; width: 100%; }
 }
