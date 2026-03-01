@@ -6,22 +6,30 @@
   <title>Retail Cart Manager - Login</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body>
-  <div class="container" style="max-width: 760px;">
-    <h1>Retail Cart Manager</h1>
+<body class="login-page">
+  <div class="login-overlay"></div>
+  <div class="container login-container">
+    <div class="card login-card">
+      <h1>Retail Cart Manager</h1>
+      <p class="muted login-subtitle">Smart price list and shared cart across your devices.</p>
 
-    <div class="card">
-      <h2 class="section-title">Sign In</h2>
-      <div class="auth-row">
-        <input id="nameInput" type="text" placeholder="Name (for sign up)" />
-        <input id="emailInput" type="email" placeholder="Email" />
+      <div class="auth-mode">
+        <button id="modeSignInBtn" class="active">Sign In</button>
+        <button id="modeSignUpBtn" class="secondary">Sign Up</button>
+      </div>
+
+      <div class="auth-row login-fields">
+        <input id="identifierInput" type="text" placeholder="Email or Username" />
         <input id="passwordInput" type="password" placeholder="Password" />
+        <input id="nameInput" class="hidden" type="text" placeholder="Full name" />
+        <input id="signupEmailInput" class="hidden" type="email" placeholder="Email (for signup)" />
+        <input id="signupUsernameInput" class="hidden" type="text" placeholder="Username (for signup)" />
       </div>
+
       <div class="auth-actions" style="margin-top: 10px;">
-        <button id="loginBtn">Login</button>
-        <button id="signupBtn" class="secondary">Sign Up</button>
+        <button id="submitBtn">Continue</button>
       </div>
-      <p id="status" class="muted" style="margin-top: 10px;">Use your account to sync cart data across devices.</p>
+      <p id="status" class="muted" style="margin-top: 10px;">Sign in to access your synced data.</p>
     </div>
   </div>
 
