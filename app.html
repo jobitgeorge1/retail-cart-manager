@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Retail Cart Manager</title>
+  <title>Personal Cart Manager</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body class="app-page">
   <div class="container">
     <div class="topbar">
-      <h1>Retail Cart Manager</h1>
+      <h1>Personal Cart Manager</h1>
       <div class="account-corner">
         <span id="userName" class="account-name">-</span>
         <button id="logoutBtn" class="secondary account-logout">Logout</button>
@@ -19,7 +19,8 @@
 
     <div class="nav">
       <button id="menuPriceList">Price List</button>
-      <button id="menuCart" class="active">Cart</button>
+      <div id="cartTabs" class="cart-tabs"></div>
+      <button id="addCartTabBtn" class="secondary" title="Add Cart">+</button>
     </div>
 
     <section id="viewPriceList" class="hidden">
@@ -57,17 +58,6 @@
 
     <section id="viewCart">
       <div class="card">
-        <div class="cart-manager">
-          <div class="cart-manager-left">
-            <label for="cartSelector" class="muted">Current Cart</label>
-            <select id="cartSelector"></select>
-          </div>
-          <div class="cart-manager-right">
-            <input id="newCartName" type="text" placeholder="New cart name (e.g., Costco, Downtown)" />
-            <button id="addCartBtn" class="secondary">Add Cart</button>
-            <button id="deleteCartBtn" class="danger">Delete Cart</button>
-          </div>
-        </div>
         <h2 class="section-title">Cart Items</h2>
         <div id="cartRows"></div>
         <button id="addCartRowBtn" class="secondary">+ Add Item to Cart</button>

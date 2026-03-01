@@ -9,13 +9,15 @@ let realtimeUnsubscribe = null;
 let currentUser = null;
 let editingItemId = null;
 let pendingQuickAddRowIndex = null;
+let isAddingCartInline = false;
 
 const userName = document.getElementById("userName");
 const logoutBtn = document.getElementById("logoutBtn");
 const syncStatus = document.getElementById("syncStatus");
 
 const menuPriceList = document.getElementById("menuPriceList");
-const menuCart = document.getElementById("menuCart");
+const cartTabs = document.getElementById("cartTabs");
+const addCartTabBtn = document.getElementById("addCartTabBtn");
 const viewPriceList = document.getElementById("viewPriceList");
 const viewCart = document.getElementById("viewCart");
 
@@ -28,11 +30,6 @@ const addPriceItemBtn = document.getElementById("addPriceItemBtn");
 
 const priceListBody = document.getElementById("priceListBody");
 const priceListEmpty = document.getElementById("priceListEmpty");
-
-const cartSelector = document.getElementById("cartSelector");
-const newCartName = document.getElementById("newCartName");
-const addCartBtn = document.getElementById("addCartBtn");
-const deleteCartBtn = document.getElementById("deleteCartBtn");
 
 const cartRows = document.getElementById("cartRows");
 const addCartRowBtn = document.getElementById("addCartRowBtn");
@@ -54,43 +51,10 @@ document.addEventListener("click", (e) => {
 });
 
 menuPriceList.addEventListener("click", () => switchView("priceList"));
-menuCart.addEventListener("click", () => switchView("cart"));
 logoutBtn.addEventListener("click", logout);
-
-cartSelector.addEventListener("change", () => {
-  state.activeCartId = cartSelector.value;
-  saveState();
-  closeQuickAddModal();
-  renderCartManager();
-  renderCart();
-});
-
-addCartBtn.addEventListener("click", () => {
-  const name = String(newCartName.value || "").trim() || `Cart ${state.carts.length + 1}`;
-  const cart = { id: crypto.randomUUID(), name, items: [] };
-  state.carts.push(cart);
-  state.activeCartId = cart.id;
-  newCartName.value = "";
-  saveState();
-  renderCartManager();
-  renderCart();
-  switchView("cart");
-});
-
-deleteCartBtn.addEventListener("click", () => {
-  if (state.carts.length <= 1) {
-    alert("At least one cart is required.");
-    return;
-  }
-  const active = getActiveCart();
-  const ok = confirm(`Delete cart "${active.name}"?`);
-  if (!ok) return;
-
-  state.carts = state.carts.filter((c) => c.id !== active.id);
-  state.activeCartId = state.carts[0]?.id || "";
-  saveState();
-  renderCartManager();
-  renderCart();
+addCartTabBtn.addEventListener("click", () => {
+  isAddingCartInline = true;
+  renderCartTabs();
 });
 
 addPriceItemBtn.addEventListener("click", () => {
@@ -162,9 +126,9 @@ function setStatus(text) {
 function switchView(view) {
   const isPriceList = view === "priceList";
   menuPriceList.classList.toggle("active", isPriceList);
-  menuCart.classList.toggle("active", !isPriceList);
   viewPriceList.classList.toggle("hidden", !isPriceList);
   viewCart.classList.toggle("hidden", isPriceList);
+  renderCartTabs();
 }
 
 function ensureCarts() {
@@ -195,16 +159,71 @@ function getActiveCart() {
 }
 
 function renderCartManager() {
+  renderCartTabs();
+}
+
+function createCartFromInline(name) {
+  const cleaned = String(name || "").trim() || `Cart ${state.carts.length + 1}`;
+  const cart = { id: crypto.randomUUID(), name: cleaned, items: [] };
+  state.carts.push(cart);
+  state.activeCartId = cart.id;
+  isAddingCartInline = false;
+  saveState();
+  renderCartTabs();
+  renderCart();
+  switchView("cart");
+  focusRowItemInput(0);
+}
+
+function renderCartTabs() {
   ensureCarts();
-  cartSelector.innerHTML = "";
+  cartTabs.innerHTML = "";
+  const onPriceList = !viewPriceList.classList.contains("hidden");
+
   state.carts.forEach((cart) => {
-    const option = document.createElement("option");
-    option.value = cart.id;
-    option.textContent = cart.name;
-    if (cart.id === state.activeCartId) option.selected = true;
-    cartSelector.appendChild(option);
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "secondary cart-tab-btn";
+    tab.textContent = cart.name;
+    if (!onPriceList && cart.id === state.activeCartId) {
+      tab.classList.remove("secondary");
+      tab.classList.add("active");
+    }
+    tab.addEventListener("click", () => {
+      state.activeCartId = cart.id;
+      isAddingCartInline = false;
+      saveState();
+      switchView("cart");
+      renderCart();
+    });
+    cartTabs.appendChild(tab);
   });
-  deleteCartBtn.disabled = state.carts.length <= 1;
+
+  if (isAddingCartInline) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "cart-tab-input";
+    input.placeholder = "Cart name";
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        createCartFromInline(input.value);
+      } else if (e.key === "Escape") {
+        isAddingCartInline = false;
+        renderCartTabs();
+      }
+    });
+    input.addEventListener("blur", () => {
+      const value = String(input.value || "").trim();
+      if (value) createCartFromInline(value);
+      else {
+        isAddingCartInline = false;
+        renderCartTabs();
+      }
+    });
+    cartTabs.appendChild(input);
+    setTimeout(() => input.focus(), 0);
+  }
 }
 
 function addPriceListItem(name, size, price, brand = "", store = "") {
@@ -888,7 +907,7 @@ async function logout() {
 async function init() {
   closeQuickAddModal();
   ensureCarts();
-  renderCartManager();
+  renderCartTabs();
   renderPriceList();
   renderCart();
 

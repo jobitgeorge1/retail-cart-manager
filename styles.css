@@ -72,6 +72,7 @@ h1 {
   gap: 8px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .nav button {
@@ -88,6 +89,28 @@ h1 {
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);
+}
+
+.cart-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.cart-tab-btn {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cart-tab-input {
+  width: 150px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
 }
 
 .card {
@@ -164,7 +187,15 @@ td.actions-inline {
   display: flex;
   gap: 6px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  min-width: 220px;
+}
+
+td.actions-inline button {
+  padding: 6px 8px;
+  font-size: 0.82rem;
+  line-height: 1.1;
 }
 
 .muted { color: var(--muted); font-size: 0.92rem; }
