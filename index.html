@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retail Cart Manager</title>
+  <style>
+    :root {
+      --bg: #eef2ff;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #0f766e;
+      --primary-dark: #115e59;
+      --border: #d1d5db;
+      --danger: #b91c1c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at 12% 18%, rgba(14, 165, 233, 0.22), transparent 34%),
+        radial-gradient(circle at 86% 14%, rgba(15, 118, 110, 0.18), transparent 30%),
+        radial-gradient(circle at 78% 82%, rgba(59, 130, 246, 0.16), transparent 32%),
+        linear-gradient(145deg, #e8eefc 0%, #f8fbff 55%, #edf7f6 100%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-size: 1.8rem;
+      letter-spacing: 0.2px;
+    }
+
+    .nav {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .nav button {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .nav button.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      margin: 0 0 12px;
+      font-size: 1.2rem;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 180px 140px auto;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    input, select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+    }
+
+    button {
+      border: 0;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover { background: var(--primary-dark); }
+
+    button.secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    button.danger { background: var(--danger); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: middle;
+    }
+
+    .muted { color: var(--muted); font-size: 0.92rem; }
+
+    .cart-row {
+      display: grid;
+      grid-template-columns: 1.2fr 120px 140px auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .combo {
+      position: relative;
+      width: 100%;
+    }
+
+    .combo-control {
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .combo-control:focus-within {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+    }
+
+    .combo input.combo-input {
+      border: 0;
+      box-shadow: none;
+      border-radius: 0;
+      flex: 1;
+    }
+
+    .combo-toggle {
+      background: #fff;
+      color: var(--muted);
+      border: 0;
+      border-left: 1px solid #e5e7eb;
+      border-radius: 0;
+      padding: 9px 10px;
+      min-width: 38px;
+    }
+
+    .combo-toggle:hover {
+      background: #f9fafb;
+      color: var(--text);
+    }
+
+    .combo-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      box-shadow: 0 12px 25px rgba(15, 23, 42, 0.15);
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 20;
+      padding: 4px;
+    }
+
+    .combo-option,
+    .combo-empty {
+      width: 100%;
+      text-align: left;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.92rem;
+    }
+
+    .combo-option:hover {
+      background: #ecfeff;
+    }
+
+    .combo-empty {
+      color: var(--muted);
+      cursor: default;
+    }
+
+    .totals {
+      display: flex;
+      justify-content: flex-end;
+      font-weight: 700;
+      font-size: 1.15rem;
+      margin-top: 10px;
+    }
+
+    .sync-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 720px) {
+      .row { grid-template-columns: 1fr; }
+      .cart-row { grid-template-columns: 1fr; }
+      .totals { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Retail Cart Manager</h1>
+
+    <div class="nav">
+      <button id="menuPriceList">Price List</button>
+      <button id="menuCart" class="active">Cart</button>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">Cloud Sync (Appwrite)</h2>
+      <div class="sync-row">
+        <input id="syncIdInput" type="text" placeholder="Enter shared Sync ID (e.g., my-shop-01)" />
+        <button id="syncConnectBtn" class="secondary">Connect</button>
+      </div>
+      <p id="syncStatus" class="muted">Using local storage only. Configure Appwrite to enable sync.</p>
+    </div>
+
+    <section id="viewPriceList" class="hidden">
+      <div class="card">
+        <h2 class="section-title">Add Item to Price List</h2>
+        <div class="row">
+          <input id="newItemName" type="text" placeholder="Item name (e.g., Apple)" />
+          <input id="newItemSize" type="text" placeholder="Size (e.g., 1kg, 500ml)" />
+          <input id="newItemPrice" type="number" min="0" step="0.01" placeholder="Price" />
+          <button id="addPriceItemBtn">Add Item</button>
+        </div>
+        <p class="muted">You can edit size and price anytime in the table below.</p>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Price List</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Size</th>
+              <th>Price</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="priceListBody"></tbody>
+        </table>
+        <p id="priceListEmpty" class="muted">No items yet. Add your first item above.</p>
+      </div>
+    </section>
+
+    <section id="viewCart">
+      <div class="card">
+        <h2 class="section-title">Cart Items</h2>
+        <div id="cartRows"></div>
+        <button id="addCartRowBtn" class="secondary">+ Add Item to Cart</button>
+        <div class="totals">Cart Total: $<span id="cartTotal">0.00</span></div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Quick Add Missing Item</h2>
+        <div class="row">
+          <input id="quickItemName" type="text" placeholder="Missing item name" />
+          <input id="quickItemSize" type="text" placeholder="Size (e.g., 1L, 2kg)" />
+          <input id="quickItemPrice" type="number" min="0" step="0.01" placeholder="Price" />
+          <button id="quickAddBtn">Quick Add</button>
+        </div>
+        <p class="muted">This directly adds the item to the Price List and makes it available in cart dropdowns.</p>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { Account, Client, Databases, Permission, Query, Role } from "https://cdn.jsdelivr.net/npm/appwrite@15.0.0/+esm";
+
+    const STORAGE_KEY = "simple-price-cart-v1";
+    const SYNC_ID_KEY = "simple-price-cart-sync-id";
+
+    // Fill these values from your Appwrite project settings.
+    const APPWRITE_CONFIG = {
+      endpoint: "https://syd.cloud.appwrite.io/v1",
+      projectId: "69a42ae4000b179052cc",
+      databaseId: "69a42d9300336b242511",
+      collectionId: "retail_cart_states"
+    };
+
+    const state = loadState();
+    let isApplyingRemoteState = false;
+    let cloudSaveTimer = null;
+    let appwriteReady = false;
+    let client = null;
+    let account = null;
+    let databases = null;
+    let realtimeUnsubscribe = null;
+    let currentSyncId = localStorage.getItem(SYNC_ID_KEY) || "";
+
+    const menuPriceList = document.getElementById("menuPriceList");
+    const menuCart = document.getElementById("menuCart");
+    const viewPriceList = document.getElementById("viewPriceList");
+    const viewCart = document.getElementById("viewCart");
+
+    const newItemName = document.getElementById("newItemName");
+    const newItemSize = document.getElementById("newItemSize");
+    const newItemPrice = document.getElementById("newItemPrice");
+    const addPriceItemBtn = document.getElementById("addPriceItemBtn");
+
+    const priceListBody = document.getElementById("priceListBody");
+    const priceListEmpty = document.getElementById("priceListEmpty");
+
+    const cartRows = document.getElementById("cartRows");
+    const addCartRowBtn = document.getElementById("addCartRowBtn");
+    const cartTotal = document.getElementById("cartTotal");
+
+    const quickItemName = document.getElementById("quickItemName");
+    const quickItemSize = document.getElementById("quickItemSize");
+    const quickItemPrice = document.getElementById("quickItemPrice");
+    const quickAddBtn = document.getElementById("quickAddBtn");
+    const syncIdInput = document.getElementById("syncIdInput");
+    const syncConnectBtn = document.getElementById("syncConnectBtn");
+    const syncStatus = document.getElementById("syncStatus");
+
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".combo")) {
+        closeAllCombos();
+      }
+    });
+
+    menuPriceList.addEventListener("click", () => switchView("priceList"));
+    menuCart.addEventListener("click", () => switchView("cart"));
+    syncConnectBtn.addEventListener("click", connectCloudSync);
+
+    addPriceItemBtn.addEventListener("click", () => {
+      addPriceListItem(newItemName.value, newItemSize.value, parseFloat(newItemPrice.value));
+      newItemName.value = "";
+      newItemSize.value = "";
+      newItemPrice.value = "";
+      newItemName.focus();
+    });
+
+    addCartRowBtn.addEventListener("click", () => {
+      state.cart.push({ itemId: "", quantity: 1 });
+      saveState();
+      renderCart();
+    });
+
+    quickAddBtn.addEventListener("click", () => {
+      const item = addPriceListItem(quickItemName.value, quickItemSize.value, parseFloat(quickItemPrice.value));
+      if (!item) return;
+
+      quickItemName.value = "";
+      quickItemSize.value = "";
+      quickItemPrice.value = "";
+
+      const firstEmptyRow = state.cart.find((row) => !row.itemId);
+      if (firstEmptyRow) {
+        firstEmptyRow.itemId = item.id;
+      } else {
+        state.cart.push({ itemId: item.id, quantity: 1 });
+      }
+      saveState();
+      renderCart();
+    });
+
+    function switchView(view) {
+      const isPriceList = view === "priceList";
+      menuPriceList.classList.toggle("active", isPriceList);
+      menuCart.classList.toggle("active", !isPriceList);
+      viewPriceList.classList.toggle("hidden", !isPriceList);
+      viewCart.classList.toggle("hidden", isPriceList);
+    }
+
+    function addPriceListItem(name, size, price) {
+      const cleanedName = String(name || "").trim();
+      const cleanedSize = String(size || "").trim();
+      if (!cleanedName) {
+        alert("Please enter item name.");
+        return null;
+      }
+      if (!cleanedSize) {
+        alert("Please enter item size.");
+        return null;
+      }
+      if (Number.isNaN(price) || price < 0) {
+        alert("Please enter a valid price.");
+        return null;
+      }
+
+      const exists = state.priceList.some((item) =>
+        item.name.toLowerCase() === cleanedName.toLowerCase() &&
+        String(item.size || "").toLowerCase() === cleanedSize.toLowerCase()
+      );
+      if (exists) {
+        alert("Item with the same size already exists in price list.");
+        return null;
+      }
+
+      const item = {
+        id: crypto.randomUUID(),
+        name: cleanedName,
+        size: cleanedSize,
+        price: roundMoney(price)
+      };
+
+      state.priceList.push(item);
+      saveState();
+      renderPriceList();
+      renderCart();
+      return item;
+    }
+
+    function renderPriceList() {
+      priceListBody.innerHTML = "";
+
+      if (!state.priceList.length) {
+        priceListEmpty.style.display = "block";
+        return;
+      }
+
+      priceListEmpty.style.display = "none";
+
+      state.priceList.forEach((item) => {
+        const tr = document.createElement("tr");
+
+        const tdName = document.createElement("td");
+        tdName.textContent = item.name;
+
+        const tdSize = document.createElement("td");
+        const sizeInput = document.createElement("input");
+        sizeInput.type = "text";
+        sizeInput.value = item.size || "";
+        sizeInput.placeholder = "Size";
+        sizeInput.addEventListener("change", (e) => {
+          const nextSize = String(e.target.value || "").trim();
+          if (!nextSize) {
+            e.target.value = item.size || "";
+            return;
+          }
+          const duplicate = state.priceList.some((x) =>
+            x.id !== item.id &&
+            x.name.toLowerCase() === item.name.toLowerCase() &&
+            String(x.size || "").toLowerCase() === nextSize.toLowerCase()
+          );
+          if (duplicate) {
+            alert("Another item with same name and size already exists.");
+            e.target.value = item.size || "";
+            return;
+          }
+          item.size = nextSize;
+          saveState();
+          renderCart();
+        });
+        tdSize.appendChild(sizeInput);
+
+        const tdPrice = document.createElement("td");
+        const priceInput = document.createElement("input");
+        priceInput.type = "number";
+        priceInput.min = "0";
+        priceInput.step = "0.01";
+        priceInput.value = item.price.toFixed(2);
+        priceInput.addEventListener("change", (e) => {
+          const nextPrice = parseFloat(e.target.value);
+          if (Number.isNaN(nextPrice) || nextPrice < 0) {
+            e.target.value = item.price.toFixed(2);
+            return;
+          }
+          item.price = roundMoney(nextPrice);
+          saveState();
+          renderCart();
+        });
+        tdPrice.appendChild(priceInput);
+
+        const tdActions = document.createElement("td");
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "danger";
+        removeBtn.textContent = "Delete";
+        removeBtn.addEventListener("click", () => {
+          state.priceList = state.priceList.filter((x) => x.id !== item.id);
+          state.cart = state.cart.map((row) => row.itemId === item.id ? { ...row, itemId: "" } : row);
+          saveState();
+          renderPriceList();
+          renderCart();
+        });
+
+        tdActions.appendChild(removeBtn);
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdSize);
+        tr.appendChild(tdPrice);
+        tr.appendChild(tdActions);
+        priceListBody.appendChild(tr);
+      });
+    }
+
+    function renderCart() {
+      cartRows.innerHTML = "";
+
+      if (!state.cart.length) {
+        state.cart.push({ itemId: "", quantity: 1 });
+      }
+
+      state.cart.forEach((row, index) => {
+        const container = document.createElement("div");
+        container.className = "cart-row";
+
+        const combo = document.createElement("div");
+        combo.className = "combo";
+        const control = document.createElement("div");
+        control.className = "combo-control";
+
+        const itemInput = document.createElement("input");
+        itemInput.type = "text";
+        itemInput.className = "combo-input";
+        itemInput.placeholder = state.priceList.length ? "Search or select item..." : "No items in price list";
+
+        const toggleBtn = document.createElement("button");
+        toggleBtn.type = "button";
+        toggleBtn.className = "combo-toggle";
+        toggleBtn.textContent = "▾";
+        toggleBtn.title = "Show items";
+
+        const menu = document.createElement("div");
+        menu.className = "combo-menu hidden";
+
+        const renderOptions = (queryOverride) => {
+          const query = typeof queryOverride === "string"
+            ? queryOverride
+            : String(itemInput.value || "").trim().toLowerCase();
+          const filtered = state.priceList.filter((item) => getItemLabel(item).toLowerCase().includes(query));
+
+          menu.innerHTML = "";
+          if (!filtered.length) {
+            const empty = document.createElement("div");
+            empty.className = "combo-empty";
+            empty.textContent = "No matching items";
+            menu.appendChild(empty);
+            return;
+          }
+
+          filtered.forEach((item) => {
+            const option = document.createElement("button");
+            option.type = "button";
+            option.className = "combo-option";
+            option.textContent = `${getItemLabel(item)}  ($${item.price.toFixed(2)})`;
+            option.addEventListener("click", () => {
+              row.itemId = item.id;
+              itemInput.value = getItemLabel(item);
+              saveState();
+              updateCartTotal();
+              menu.classList.add("hidden");
+            });
+            menu.appendChild(option);
+          });
+        };
+
+        const openMenu = (showAll = false) => {
+          if (!state.priceList.length) return;
+          closeAllCombos();
+          renderOptions(showAll ? "" : undefined);
+          menu.classList.remove("hidden");
+        };
+
+        const selectedItem = state.priceList.find((item) => item.id === row.itemId);
+        itemInput.value = selectedItem ? getItemLabel(selectedItem) : "";
+
+        itemInput.addEventListener("input", (e) => {
+          const typed = String(e.target.value || "").trim().toLowerCase();
+          const match = state.priceList.find((item) => getItemLabel(item).toLowerCase() === typed);
+          row.itemId = match ? match.id : "";
+          saveState();
+          updateCartTotal();
+          openMenu();
+        });
+        itemInput.addEventListener("focus", openMenu);
+        itemInput.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            openMenu();
+          }
+        });
+        toggleBtn.addEventListener("click", () => {
+          if (menu.classList.contains("hidden")) {
+            openMenu(true);
+          } else {
+            menu.classList.add("hidden");
+          }
+        });
+
+        const qtyInput = document.createElement("input");
+        qtyInput.type = "number";
+        qtyInput.min = "1";
+        qtyInput.step = "1";
+        qtyInput.value = String(row.quantity || 1);
+        qtyInput.addEventListener("input", (e) => {
+          const val = parseInt(e.target.value, 10);
+          row.quantity = Number.isNaN(val) || val < 1 ? 1 : val;
+          saveState();
+          updateCartTotal();
+        });
+
+        const lineTotal = document.createElement("div");
+        lineTotal.className = "muted";
+
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "secondary";
+        removeBtn.textContent = "Remove";
+        removeBtn.addEventListener("click", () => {
+          state.cart.splice(index, 1);
+          saveState();
+          renderCart();
+        });
+
+        control.appendChild(itemInput);
+        control.appendChild(toggleBtn);
+        combo.appendChild(control);
+        combo.appendChild(menu);
+
+        container.appendChild(combo);
+        container.appendChild(qtyInput);
+        container.appendChild(lineTotal);
+        container.appendChild(removeBtn);
+        cartRows.appendChild(container);
+
+        updateLineTotal(lineTotal, row);
+      });
+
+      updateCartTotal();
+    }
+
+    function closeAllCombos() {
+      cartRows.querySelectorAll(".combo-menu").forEach((menu) => {
+        menu.classList.add("hidden");
+      });
+    }
+
+    function getItemLabel(item) {
+      const name = String(item?.name || "").trim();
+      const size = String(item?.size || "").trim();
+      return size ? `${name} - ${size}` : name;
+    }
+
+    function updateLineTotal(node, row) {
+      const item = state.priceList.find((x) => x.id === row.itemId);
+      if (!item) {
+        node.textContent = "Line Total: $0.00";
+        return 0;
+      }
+      const total = roundMoney((row.quantity || 1) * item.price);
+      node.textContent = `Line Total: $${total.toFixed(2)}`;
+      return total;
+    }
+
+    function updateCartTotal() {
+      let total = 0;
+      const lineTotalNodes = cartRows.querySelectorAll(".cart-row .muted");
+
+      state.cart.forEach((row, idx) => {
+        const node = lineTotalNodes[idx];
+        const line = updateLineTotal(node, row);
+        total += line;
+      });
+
+      cartTotal.textContent = roundMoney(total).toFixed(2);
+    }
+
+    function roundMoney(n) {
+      return Math.round((n + Number.EPSILON) * 100) / 100;
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { priceList: [], cart: [] };
+        const parsed = JSON.parse(raw);
+        return {
+          priceList: Array.isArray(parsed.priceList)
+            ? parsed.priceList.map((item) => ({ ...item, size: String(item.size || "").trim() }))
+            : [],
+          cart: Array.isArray(parsed.cart) ? parsed.cart : []
+        };
+      } catch {
+        return { priceList: [], cart: [] };
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      queueCloudSave();
+    }
+
+    function setSyncStatus(text) {
+      syncStatus.textContent = text;
+    }
+
+    async function connectCloudSync() {
+      const nextSyncId = String(syncIdInput.value || "").trim().toLowerCase();
+      if (!nextSyncId) {
+        setSyncStatus("Enter a Sync ID to connect.");
+        return;
+      }
+      if (!isAppwriteConfigured()) {
+        setSyncStatus("Cloud sync not configured. Add your Appwrite config in code first.");
+        return;
+      }
+
+      const documentId = makeSyncDocumentId(nextSyncId);
+      if (!documentId) {
+        setSyncStatus("Invalid Sync ID. Use letters, numbers, dot, hyphen or underscore.");
+        return;
+      }
+
+      try {
+        await ensureAppwriteReady();
+      } catch {
+        setSyncStatus("Could not initialize cloud sync.");
+        return;
+      }
+
+      try {
+        if (realtimeUnsubscribe) {
+          realtimeUnsubscribe();
+          realtimeUnsubscribe = null;
+        }
+
+        const existing = await databases.listDocuments(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collectionId,
+          [Query.equal("$id", documentId), Query.limit(1)]
+        );
+        const remoteDoc = existing.documents?.[0] || null;
+
+        if (remoteDoc && typeof remoteDoc.payload === "string") {
+          applyRemotePayload(remoteDoc.payload);
+          saveState();
+        } else {
+          await databases.createDocument(
+            APPWRITE_CONFIG.databaseId,
+            APPWRITE_CONFIG.collectionId,
+            documentId,
+            { payload: serializeState() },
+            [
+              Permission.create(Role.any()),
+              Permission.read(Role.any()),
+              Permission.update(Role.any()),
+              Permission.delete(Role.any())
+            ]
+          );
+        }
+
+        realtimeUnsubscribe = client.subscribe(
+          `databases.${APPWRITE_CONFIG.databaseId}.collections.${APPWRITE_CONFIG.collectionId}.documents.${documentId}`,
+          (event) => {
+            const payload = event?.payload?.payload;
+            if (typeof payload === "string") {
+              applyRemotePayload(payload);
+            }
+          }
+        );
+
+        currentSyncId = nextSyncId;
+        localStorage.setItem(SYNC_ID_KEY, currentSyncId);
+        setSyncStatus(`Cloud sync connected via Appwrite: ${currentSyncId}`);
+      } catch (error) {
+        const msg = error?.message ? ` ${error.message}` : "";
+        setSyncStatus(`Cloud sync connect failed.${msg}`);
+      }
+    }
+
+    function applyRemotePayload(payloadText) {
+      try {
+        const data = JSON.parse(payloadText);
+        applyRemoteState(data);
+      } catch {
+        // Ignore invalid remote payload.
+      }
+    }
+
+    function applyRemoteState(data) {
+      if (!data || !Array.isArray(data.priceList) || !Array.isArray(data.cart)) return;
+
+      isApplyingRemoteState = true;
+      state.priceList.length = 0;
+      state.cart.length = 0;
+      data.priceList.forEach((item) => {
+        state.priceList.push({
+          id: String(item.id || crypto.randomUUID()),
+          name: String(item.name || "").trim(),
+          size: String(item.size || "").trim(),
+          price: roundMoney(Number(item.price || 0))
+        });
+      });
+      data.cart.forEach((row) => {
+        state.cart.push({
+          itemId: String(row.itemId || ""),
+          quantity: Math.max(1, parseInt(row.quantity, 10) || 1)
+        });
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderPriceList();
+      renderCart();
+      isApplyingRemoteState = false;
+    }
+
+    function queueCloudSave() {
+      if (!currentSyncId || !appwriteReady || isApplyingRemoteState) return;
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer = setTimeout(() => {
+        pushStateToCloud(currentSyncId).catch(() => {
+          setSyncStatus("Cloud save failed. Data is still saved locally.");
+        });
+      }, 300);
+    }
+
+    function serializeState() {
+      return JSON.stringify({
+        priceList: state.priceList,
+        cart: state.cart
+      });
+    }
+
+    async function pushStateToCloud(syncId) {
+      if (!appwriteReady || !syncId) return;
+      const documentId = makeSyncDocumentId(syncId);
+      const data = { payload: serializeState() };
+
+      try {
+        await databases.updateDocument(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collectionId,
+          documentId,
+          data
+        );
+      } catch {
+        await databases.createDocument(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collectionId,
+          documentId,
+          data,
+          [
+            Permission.create(Role.any()),
+            Permission.read(Role.any()),
+            Permission.update(Role.any()),
+            Permission.delete(Role.any())
+          ]
+        );
+      }
+    }
+
+    async function ensureAppwriteReady() {
+      if (appwriteReady) return;
+      client = new Client();
+      client.setEndpoint(APPWRITE_CONFIG.endpoint).setProject(APPWRITE_CONFIG.projectId);
+      account = new Account(client);
+      databases = new Databases(client);
+      try {
+        await account.createAnonymousSession();
+      } catch {
+        // Session may already exist.
+      }
+      appwriteReady = true;
+    }
+
+    function isAppwriteConfigured() {
+      return !!APPWRITE_CONFIG.endpoint &&
+        !!APPWRITE_CONFIG.projectId &&
+        !!APPWRITE_CONFIG.databaseId &&
+        !!APPWRITE_CONFIG.collectionId;
+    }
+
+    function makeSyncDocumentId(syncId) {
+      const normalized = String(syncId || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]/g, "-")
+        .slice(0, 36);
+      return normalized;
+    }
+
+    renderPriceList();
+    renderCart();
+
+    syncIdInput.value = currentSyncId;
+    if (currentSyncId && isAppwriteConfigured()) {
+      connectCloudSync();
+    }
+  </script>
+</body>
+</html>
