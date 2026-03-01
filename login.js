@@ -2,11 +2,20 @@ import { account, databases, APPWRITE_CONFIG, ID, Permission, Role, isConfigured
 
 const modeSignInBtn = document.getElementById("modeSignInBtn");
 const modeSignUpBtn = document.getElementById("modeSignUpBtn");
+const signinFields = document.getElementById("signinFields");
+const signupFields = document.getElementById("signupFields");
+
 const identifierInput = document.getElementById("identifierInput");
-const passwordInput = document.getElementById("passwordInput");
+const signinPasswordInput = document.getElementById("signinPasswordInput");
+const signinShowPassword = document.getElementById("signinShowPassword");
+
 const nameInput = document.getElementById("nameInput");
 const signupEmailInput = document.getElementById("signupEmailInput");
 const signupUsernameInput = document.getElementById("signupUsernameInput");
+const signupPasswordInput = document.getElementById("signupPasswordInput");
+const signupConfirmPasswordInput = document.getElementById("signupConfirmPasswordInput");
+const signupShowPassword = document.getElementById("signupShowPassword");
+
 const submitBtn = document.getElementById("submitBtn");
 const status = document.getElementById("status");
 
@@ -39,13 +48,15 @@ function setMode(nextMode) {
   modeSignUpBtn.classList.toggle("active", isSignUp);
   modeSignUpBtn.classList.toggle("secondary", !isSignUp);
 
-  nameInput.classList.toggle("hidden", !isSignUp);
-  signupEmailInput.classList.toggle("hidden", !isSignUp);
-  signupUsernameInput.classList.toggle("hidden", !isSignUp);
+  signinFields.classList.toggle("hidden", isSignUp);
+  signupFields.classList.toggle("hidden", !isSignUp);
 
-  identifierInput.classList.toggle("hidden", isSignUp);
   submitBtn.textContent = isSignUp ? "Create Account" : "Sign In";
   setStatus(isSignUp ? "Create your account to start syncing." : "Sign in to access your synced data.");
+}
+
+function setPasswordVisibility(input, shouldShow) {
+  input.type = shouldShow ? "text" : "password";
 }
 
 async function resolveEmailFromIdentifier(identifier) {
@@ -72,7 +83,7 @@ async function resolveEmailFromIdentifier(identifier) {
 
 async function signin() {
   const identifier = String(identifierInput.value || "").trim();
-  const password = String(passwordInput.value || "");
+  const password = String(signinPasswordInput.value || "");
   if (!identifier || !password) {
     setStatus("Enter email/username and password.");
     return;
@@ -102,10 +113,16 @@ async function signup() {
   const name = String(nameInput.value || "").trim();
   const email = String(signupEmailInput.value || "").trim().toLowerCase();
   const username = String(signupUsernameInput.value || "").trim();
-  const password = String(passwordInput.value || "");
+  const password = String(signupPasswordInput.value || "");
+  const confirmPassword = String(signupConfirmPasswordInput.value || "");
 
-  if (!name || !email || !username || !password) {
-    setStatus("Enter name, email, username, and password.");
+  if (!name || !email || !username || !password || !confirmPassword) {
+    setStatus("Enter name, email, username, password, and confirm password.");
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    setStatus("Password and confirm password do not match.");
     return;
   }
 
@@ -116,7 +133,6 @@ async function signup() {
   }
 
   try {
-    // Username uniqueness is enforced by unique document ID in DB.
     try {
       await databases.getDocument(APPWRITE_CONFIG.databaseId, APPWRITE_CONFIG.collectionId, usernameId);
       setStatus("Username already exists. Choose another username.");
@@ -158,11 +174,9 @@ async function submit() {
     setStatus("Appwrite is not configured.");
     return;
   }
-  if (mode === "signup") {
-    await signup();
-  } else {
-    await signin();
-  }
+
+  if (mode === "signup") await signup();
+  else await signin();
 }
 
 async function init() {
@@ -185,13 +199,22 @@ async function init() {
 modeSignInBtn.addEventListener("click", () => setMode("signin"));
 modeSignUpBtn.addEventListener("click", () => setMode("signup"));
 submitBtn.addEventListener("click", submit);
-passwordInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") submit();
+
+signinShowPassword.addEventListener("change", (e) => {
+  setPasswordVisibility(signinPasswordInput, e.target.checked);
 });
-identifierInput.addEventListener("keydown", (e) => {
+
+signupShowPassword.addEventListener("change", (e) => {
+  const show = e.target.checked;
+  setPasswordVisibility(signupPasswordInput, show);
+  setPasswordVisibility(signupConfirmPasswordInput, show);
+});
+
+signinPasswordInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && mode === "signin") submit();
 });
-signupUsernameInput.addEventListener("keydown", (e) => {
+
+signupConfirmPasswordInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && mode === "signup") submit();
 });
 

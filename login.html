@@ -18,12 +18,25 @@
         <button id="modeSignUpBtn" class="secondary">Sign Up</button>
       </div>
 
-      <div class="auth-row login-fields">
-        <input id="identifierInput" type="text" placeholder="Email or Username" />
-        <input id="passwordInput" type="password" placeholder="Password" />
-        <input id="nameInput" class="hidden" type="text" placeholder="Full name" />
-        <input id="signupEmailInput" class="hidden" type="email" placeholder="Email" />
-        <input id="signupUsernameInput" class="hidden" type="text" placeholder="Username" />
+      <div id="signinFields" class="login-form">
+        <input id="identifierInput" class="login-input" type="text" placeholder="Email or Username" />
+        <input id="signinPasswordInput" class="login-input" type="password" placeholder="Password" />
+        <label class="password-toggle">
+          <input id="signinShowPassword" type="checkbox" />
+          <span>Show password</span>
+        </label>
+      </div>
+
+      <div id="signupFields" class="login-form hidden">
+        <input id="nameInput" class="login-input" type="text" placeholder="Full name" />
+        <input id="signupEmailInput" class="login-input" type="email" placeholder="Email" />
+        <input id="signupUsernameInput" class="login-input" type="text" placeholder="Username" />
+        <input id="signupPasswordInput" class="login-input" type="password" placeholder="Password" />
+        <input id="signupConfirmPasswordInput" class="login-input" type="password" placeholder="Confirm password" />
+        <label class="password-toggle">
+          <input id="signupShowPassword" type="checkbox" />
+          <span>Show password</span>
+        </label>
       </div>
 
       <div class="auth-actions" style="margin-top: 10px;">
