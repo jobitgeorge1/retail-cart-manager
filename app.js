@@ -1,8 +1,8 @@
 import { account, client, databases, APPWRITE_CONFIG, isConfigured, makeUserDocumentId, Query, userPermissions } from "./appwrite-client.js";
 
-const STORAGE_KEY = "simple-price-cart-v1";
+const STORAGE_KEY_PREFIX = "personal-cart-manager-v1";
 
-const state = loadState();
+const state = createDefaultState();
 let isApplyingRemoteState = false;
 let cloudSaveTimer = null;
 let realtimeUnsubscribe = null;
@@ -121,6 +121,47 @@ quickAddModal.addEventListener("click", (e) => {
 
 function setStatus(text) {
   syncStatus.textContent = text;
+}
+
+function createDefaultState() {
+  const defaultId = crypto.randomUUID();
+  return {
+    priceList: [],
+    carts: [{ id: defaultId, name: "Default Cart", items: [] }],
+    activeCartId: defaultId
+  };
+}
+
+function getStorageKeyForUser(userId) {
+  return `${STORAGE_KEY_PREFIX}-${userId}`;
+}
+
+function setStateFrom(nextState) {
+  state.priceList.length = 0;
+  state.carts.length = 0;
+
+  nextState.priceList.forEach((item) => {
+    state.priceList.push({
+      ...item,
+      brand: String(item.brand || "").trim(),
+      store: String(item.store || "").trim(),
+      size: String(item.size || "").trim()
+    });
+  });
+
+  nextState.carts.forEach((cart, idx) => {
+    state.carts.push({
+      id: String(cart.id || crypto.randomUUID()),
+      name: String(cart.name || `Cart ${idx + 1}`).trim() || `Cart ${idx + 1}`,
+      items: Array.isArray(cart.items) ? cart.items.map((row) => ({
+        itemId: String(row.itemId || ""),
+        quantity: Math.max(1, parseInt(row.quantity, 10) || 1)
+      })) : []
+    });
+  });
+
+  state.activeCartId = nextState.activeCartId;
+  ensureCarts();
 }
 
 function switchView(view) {
@@ -716,8 +757,10 @@ function getItemLabel(item) {
   const name = String(item?.name || "").trim();
   const size = String(item?.size || "").trim();
   const brand = String(item?.brand || "").trim();
+  const store = String(item?.store || "").trim();
   const base = size ? `${name} - ${size}` : name;
-  return brand ? `${base} (${brand})` : base;
+  const details = [brand, store].filter(Boolean).join(" | ");
+  return details ? `${base} (${details})` : base;
 }
 
 function isDuplicateByIdentity(item, identity) {
@@ -793,30 +836,22 @@ function migrateState(parsed) {
   return migrated;
 }
 
-function loadState() {
+function loadStateForUser(userId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKeyForUser(userId));
     if (!raw) {
-      const defaultId = crypto.randomUUID();
-      return {
-        priceList: [],
-        carts: [{ id: defaultId, name: "Default Cart", items: [] }],
-        activeCartId: defaultId
-      };
+      return createDefaultState();
     }
     return migrateState(JSON.parse(raw));
   } catch {
-    const defaultId = crypto.randomUUID();
-    return {
-      priceList: [],
-      carts: [{ id: defaultId, name: "Default Cart", items: [] }],
-      activeCartId: defaultId
-    };
+    return createDefaultState();
   }
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (currentUser?.$id) {
+    localStorage.setItem(getStorageKeyForUser(currentUser.$id), JSON.stringify(state));
+  }
   queueCloudSave();
 }
 
@@ -825,34 +860,10 @@ function applyRemotePayload(payloadText) {
     const data = migrateState(JSON.parse(payloadText));
 
     isApplyingRemoteState = true;
-    state.priceList.length = 0;
-    state.carts.length = 0;
-
-    data.priceList.forEach((item) => {
-      state.priceList.push({
-        id: String(item.id || crypto.randomUUID()),
-        name: String(item.name || "").trim(),
-        brand: String(item.brand || "").trim(),
-        store: String(item.store || "").trim(),
-        size: String(item.size || "").trim(),
-        price: roundMoney(Number(item.price || 0))
-      });
-    });
-
-    data.carts.forEach((cart, idx) => {
-      state.carts.push({
-        id: String(cart.id || crypto.randomUUID()),
-        name: String(cart.name || `Cart ${idx + 1}`).trim() || `Cart ${idx + 1}`,
-        items: Array.isArray(cart.items) ? cart.items.map((row) => ({
-          itemId: String(row.itemId || ""),
-          quantity: Math.max(1, parseInt(row.quantity, 10) || 1)
-        })) : []
-      });
-    });
-
-    state.activeCartId = data.activeCartId;
-    ensureCarts();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    setStateFrom(data);
+    if (currentUser?.$id) {
+      localStorage.setItem(getStorageKeyForUser(currentUser.$id), JSON.stringify(state));
+    }
 
     renderCartManager();
     renderPriceList();
@@ -947,18 +958,23 @@ async function logout() {
 
 async function init() {
   closeQuickAddModal();
-  ensureCarts();
-  renderCartTabs();
-  renderPriceList();
-  renderCart();
 
   if (!isConfigured()) {
     setStatus("Appwrite is not configured.");
+    ensureCarts();
+    renderCartTabs();
+    renderPriceList();
+    renderCart();
     return;
   }
 
   try {
     currentUser = await account.get();
+    setStateFrom(loadStateForUser(currentUser.$id));
+    renderCartTabs();
+    renderPriceList();
+    renderCart();
+
     userName.textContent = currentUser.name || currentUser.email;
     setStatus("Connecting cloud sync...");
     await connectUserSync(currentUser.$id);
