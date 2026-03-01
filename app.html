@@ -8,18 +8,14 @@
 </head>
 <body>
   <div class="container">
-    <h1>Retail Cart Manager</h1>
-
-    <div class="card">
-      <h2 class="section-title">Account</h2>
-      <div class="auth-row">
-        <input id="userEmail" type="text" readonly />
-        <div class="auth-actions">
-          <button id="logoutBtn" class="secondary">Logout</button>
-        </div>
+    <div class="topbar">
+      <h1>Retail Cart Manager</h1>
+      <div class="account-corner">
+        <span id="userEmail" class="account-email">-</span>
+        <button id="logoutBtn" class="secondary account-logout">Logout</button>
       </div>
-      <p id="syncStatus" class="muted" style="margin-top: 10px;">Checking session...</p>
     </div>
+    <p id="syncStatus" class="muted" style="margin-top: 0; margin-bottom: 12px;">Checking session...</p>
 
     <div class="nav">
       <button id="menuPriceList">Price List</button>
@@ -62,18 +58,23 @@
         <button id="addCartRowBtn" class="secondary">+ Add Item to Cart</button>
         <div class="totals">Cart Total: $<span id="cartTotal">0.00</span></div>
       </div>
-
-      <div class="card">
-        <h2 class="section-title">Quick Add Missing Item</h2>
-        <div class="row">
-          <input id="quickItemName" type="text" placeholder="Missing item name" />
-          <input id="quickItemSize" type="text" placeholder="Size (e.g., 1L, 2kg)" />
-          <input id="quickItemPrice" type="number" min="0" step="0.01" placeholder="Price" />
-          <button id="quickAddBtn">Quick Add</button>
-        </div>
-        <p class="muted">This directly adds the item to the Price List and makes it available in cart dropdowns.</p>
-      </div>
     </section>
+  </div>
+
+  <div id="quickAddModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h2 class="section-title">Add Missing Item</h2>
+      <div class="modal-grid">
+        <input id="quickItemName" type="text" placeholder="Item name" />
+        <input id="quickItemSize" type="text" placeholder="Size (e.g., 1L, 2kg)" />
+        <input id="quickItemPrice" type="number" min="0" step="0.01" placeholder="Price" />
+      </div>
+      <div class="modal-actions">
+        <button id="quickAddBtn">Add to Price List</button>
+        <button id="quickAddCancelBtn" class="secondary">Cancel</button>
+      </div>
+      <p class="muted">Item will be added and auto-selected in the current cart row.</p>
+    </div>
   </div>
 
   <script type="module" src="./app.js"></script>

@@ -33,9 +33,13 @@ const quickItemName = document.getElementById("quickItemName");
 const quickItemSize = document.getElementById("quickItemSize");
 const quickItemPrice = document.getElementById("quickItemPrice");
 const quickAddBtn = document.getElementById("quickAddBtn");
+const quickAddModal = document.getElementById("quickAddModal");
+const quickAddCancelBtn = document.getElementById("quickAddCancelBtn");
+
+let pendingQuickAddRowIndex = null;
 
 document.addEventListener("click", (e) => {
-  if (!e.target.closest(".combo")) {
+  if (!e.target.closest(".combo") && !e.target.closest(".modal-card")) {
     closeAllCombos();
   }
 });
@@ -62,18 +66,20 @@ quickAddBtn.addEventListener("click", () => {
   const item = addPriceListItem(quickItemName.value, quickItemSize.value, parseFloat(quickItemPrice.value));
   if (!item) return;
 
-  quickItemName.value = "";
-  quickItemSize.value = "";
-  quickItemPrice.value = "";
-
-  const firstEmptyRow = state.cart.find((row) => !row.itemId);
-  if (firstEmptyRow) {
-    firstEmptyRow.itemId = item.id;
+  if (pendingQuickAddRowIndex !== null && state.cart[pendingQuickAddRowIndex]) {
+    state.cart[pendingQuickAddRowIndex].itemId = item.id;
   } else {
-    state.cart.push({ itemId: item.id, quantity: 1 });
+    const firstEmptyRow = state.cart.find((row) => !row.itemId);
+    if (firstEmptyRow) firstEmptyRow.itemId = item.id;
+    else state.cart.push({ itemId: item.id, quantity: 1 });
   }
   saveState();
+  closeQuickAddModal();
   renderCart();
+});
+quickAddCancelBtn.addEventListener("click", closeQuickAddModal);
+quickAddModal.addEventListener("click", (e) => {
+  if (e.target === quickAddModal) closeQuickAddModal();
 });
 
 function setStatus(text) {
@@ -125,6 +131,28 @@ function addPriceListItem(name, size, price) {
   renderPriceList();
   renderCart();
   return item;
+}
+
+function openQuickAddModal(searchText, rowIndex) {
+  pendingQuickAddRowIndex = rowIndex;
+  const text = String(searchText || "").trim();
+  const split = text.split("-").map((x) => x.trim()).filter(Boolean);
+
+  quickItemName.value = split[0] || text || "";
+  quickItemSize.value = split.length > 1 ? split.slice(1).join(" - ") : "";
+  quickItemPrice.value = "";
+
+  quickAddModal.classList.remove("hidden");
+  if (quickItemName.value) quickItemSize.focus();
+  else quickItemName.focus();
+}
+
+function closeQuickAddModal() {
+  quickAddModal.classList.add("hidden");
+  quickItemName.value = "";
+  quickItemSize.value = "";
+  quickItemPrice.value = "";
+  pendingQuickAddRowIndex = null;
 }
 
 function renderPriceList() {
@@ -251,6 +279,17 @@ function renderCart() {
         empty.className = "combo-empty";
         empty.textContent = "No matching items";
         menu.appendChild(empty);
+
+        const addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.className = "combo-option";
+        const query = String(itemInput.value || "").trim();
+        addBtn.textContent = query ? `+ Add "${query}"` : "+ Add new item";
+        addBtn.addEventListener("click", () => {
+          menu.classList.add("hidden");
+          openQuickAddModal(query, index);
+        });
+        menu.appendChild(addBtn);
         return;
       }
 
@@ -271,7 +310,6 @@ function renderCart() {
     };
 
     const openMenu = (showAll = false) => {
-      if (!state.priceList.length) return;
       closeAllCombos();
       renderOptions(showAll ? "" : undefined);
       menu.classList.remove("hidden");
@@ -510,7 +548,7 @@ async function init() {
 
   try {
     currentUser = await account.get();
-    userEmail.value = currentUser.email;
+    userEmail.textContent = currentUser.email;
     setStatus("Connecting cloud sync...");
     await connectUserSync(currentUser.$id);
     setStatus("Cloud sync connected.");

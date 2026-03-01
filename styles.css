@@ -35,6 +35,30 @@ h1 {
   letter-spacing: 0.2px;
 }
 
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.account-corner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.account-email {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.account-logout {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
 .nav {
   display: flex;
   gap: 8px;
@@ -334,6 +358,40 @@ th, td {
   min-width: 130px;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 23, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 18px;
+  z-index: 40;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 420px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.24);
+  padding: 16px;
+}
+
+.modal-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 @media (max-width: 720px) {
   .row { grid-template-columns: 1fr; }
   .cart-row { grid-template-columns: 1fr; }
@@ -341,4 +399,7 @@ th, td {
   .auth-row { flex-direction: column; align-items: stretch; }
   .auth-actions { display: grid; grid-template-columns: 1fr; }
   .auth-mode { display: grid; grid-template-columns: 1fr 1fr; }
+  .topbar { flex-direction: column; align-items: flex-start; }
+  .account-corner { margin-top: 0; }
+  .modal-actions { display: grid; grid-template-columns: 1fr; }
 }
