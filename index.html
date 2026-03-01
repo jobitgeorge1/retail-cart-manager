@@ -230,9 +230,9 @@
       margin-top: 10px;
     }
 
-    .sync-row {
+    .auth-row {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr 1fr 1fr auto auto auto;
       gap: 10px;
       align-items: center;
     }
@@ -241,6 +241,7 @@
 
     @media (max-width: 720px) {
       .row { grid-template-columns: 1fr; }
+      .auth-row { grid-template-columns: 1fr; }
       .cart-row { grid-template-columns: 1fr; }
       .totals { justify-content: flex-start; }
     }
@@ -250,18 +251,22 @@
   <div class="container">
     <h1>Retail Cart Manager</h1>
 
-    <div class="nav">
+    <div id="appNav" class="nav hidden">
       <button id="menuPriceList">Price List</button>
       <button id="menuCart" class="active">Cart</button>
     </div>
 
     <div class="card">
-      <h2 class="section-title">Cloud Sync (Appwrite)</h2>
-      <div class="sync-row">
-        <input id="syncIdInput" type="text" placeholder="Enter shared Sync ID (e.g., my-shop-01)" />
-        <button id="syncConnectBtn" class="secondary">Connect</button>
+      <h2 class="section-title">Account Login</h2>
+      <div class="auth-row">
+        <input id="authNameInput" type="text" placeholder="Name (for signup)" />
+        <input id="authEmailInput" type="email" placeholder="Email" />
+        <input id="authPasswordInput" type="password" placeholder="Password" />
+        <button id="loginBtn">Login</button>
+        <button id="signupBtn" class="secondary">Sign Up</button>
+        <button id="logoutBtn" class="secondary hidden">Logout</button>
       </div>
-      <p id="syncStatus" class="muted">Using local storage only. Configure Appwrite to enable sync.</p>
+      <p id="authStatus" class="muted">Login to sync your data across devices.</p>
     </div>
 
     <section id="viewPriceList" class="hidden">
@@ -315,10 +320,9 @@
   </div>
 
   <script type="module">
-    import { Account, Client, Databases, Permission, Query, Role } from "https://cdn.jsdelivr.net/npm/appwrite@15.0.0/+esm";
+    import { Account, Client, Databases, ID, Permission, Query, Role } from "https://cdn.jsdelivr.net/npm/appwrite@15.0.0/+esm";
 
     const STORAGE_KEY = "simple-price-cart-v1";
-    const SYNC_ID_KEY = "simple-price-cart-sync-id";
 
     // Fill these values from your Appwrite project settings.
     const APPWRITE_CONFIG = {
@@ -336,8 +340,9 @@
     let account = null;
     let databases = null;
     let realtimeUnsubscribe = null;
-    let currentSyncId = localStorage.getItem(SYNC_ID_KEY) || "";
+    let currentUser = null;
 
+    const appNav = document.getElementById("appNav");
     const menuPriceList = document.getElementById("menuPriceList");
     const menuCart = document.getElementById("menuCart");
     const viewPriceList = document.getElementById("viewPriceList");
@@ -359,9 +364,13 @@
     const quickItemSize = document.getElementById("quickItemSize");
     const quickItemPrice = document.getElementById("quickItemPrice");
     const quickAddBtn = document.getElementById("quickAddBtn");
-    const syncIdInput = document.getElementById("syncIdInput");
-    const syncConnectBtn = document.getElementById("syncConnectBtn");
-    const syncStatus = document.getElementById("syncStatus");
+    const authNameInput = document.getElementById("authNameInput");
+    const authEmailInput = document.getElementById("authEmailInput");
+    const authPasswordInput = document.getElementById("authPasswordInput");
+    const loginBtn = document.getElementById("loginBtn");
+    const signupBtn = document.getElementById("signupBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const authStatus = document.getElementById("authStatus");
 
     document.addEventListener("click", (e) => {
       if (!e.target.closest(".combo")) {
@@ -371,7 +380,9 @@
 
     menuPriceList.addEventListener("click", () => switchView("priceList"));
     menuCart.addEventListener("click", () => switchView("cart"));
-    syncConnectBtn.addEventListener("click", connectCloudSync);
+    loginBtn.addEventListener("click", loginUser);
+    signupBtn.addEventListener("click", signupUser);
+    logoutBtn.addEventListener("click", logoutUser);
 
     addPriceItemBtn.addEventListener("click", () => {
       addPriceListItem(newItemName.value, newItemSize.value, parseFloat(newItemPrice.value));
@@ -731,39 +742,142 @@
       queueCloudSave();
     }
 
-    function setSyncStatus(text) {
-      syncStatus.textContent = text;
+    function setAuthStatus(text) {
+      authStatus.textContent = text;
     }
 
-    async function connectCloudSync() {
-      const nextSyncId = String(syncIdInput.value || "").trim().toLowerCase();
-      if (!nextSyncId) {
-        setSyncStatus("Enter a Sync ID to connect.");
-        return;
+    function getEmailAndPassword() {
+      const email = String(authEmailInput.value || "").trim();
+      const password = String(authPasswordInput.value || "");
+      return { email, password };
+    }
+
+    function setAppVisibility(isLoggedIn) {
+      appNav.classList.toggle("hidden", !isLoggedIn);
+      viewPriceList.classList.toggle("hidden", true);
+      viewCart.classList.toggle("hidden", !isLoggedIn);
+      if (isLoggedIn) {
+        switchView("cart");
       }
+      logoutBtn.classList.toggle("hidden", !isLoggedIn);
+      loginBtn.classList.toggle("hidden", isLoggedIn);
+      signupBtn.classList.toggle("hidden", isLoggedIn);
+      authNameInput.disabled = isLoggedIn;
+      authEmailInput.disabled = isLoggedIn;
+      authPasswordInput.disabled = isLoggedIn;
+    }
+
+    async function signupUser() {
       if (!isAppwriteConfigured()) {
-        setSyncStatus("Cloud sync not configured. Add your Appwrite config in code first.");
+        setAuthStatus("Appwrite not configured. Check APPWRITE_CONFIG.");
         return;
       }
 
-      const documentId = makeSyncDocumentId(nextSyncId);
-      if (!documentId) {
-        setSyncStatus("Invalid Sync ID. Use letters, numbers, dot, hyphen or underscore.");
+      const name = String(authNameInput.value || "").trim();
+      const { email, password } = getEmailAndPassword();
+      if (!email || !password) {
+        setAuthStatus("Enter email and password to sign up.");
         return;
       }
 
       try {
         await ensureAppwriteReady();
-      } catch {
-        setSyncStatus("Could not initialize cloud sync.");
+        await account.create(ID.unique(), email, password, name || undefined);
+        await account.createEmailPasswordSession(email, password);
+        const user = await account.get();
+        await afterLogin(user);
+      } catch (error) {
+        const msg = error?.message ? ` ${error.message}` : "";
+        setAuthStatus(`Sign up failed.${msg}`);
+      }
+    }
+
+    async function loginUser() {
+      if (!isAppwriteConfigured()) {
+        setAuthStatus("Appwrite not configured. Check APPWRITE_CONFIG.");
         return;
       }
+
+      const { email, password } = getEmailAndPassword();
+      if (!email || !password) {
+        setAuthStatus("Enter email and password to login.");
+        return;
+      }
+
+      try {
+        await ensureAppwriteReady();
+        try {
+          await account.deleteSession("current");
+        } catch {
+          // Ignore if no session exists.
+        }
+        await account.createEmailPasswordSession(email, password);
+        const user = await account.get();
+        await afterLogin(user);
+      } catch (error) {
+        const msg = error?.message ? ` ${error.message}` : "";
+        setAuthStatus(`Login failed.${msg}`);
+      }
+    }
+
+    async function logoutUser() {
+      try {
+        if (realtimeUnsubscribe) {
+          realtimeUnsubscribe();
+          realtimeUnsubscribe = null;
+        }
+        if (account) {
+          await account.deleteSession("current");
+        }
+      } catch {
+        // Ignore logout errors.
+      }
+      currentUser = null;
+      clearState();
+      setAppVisibility(false);
+      setAuthStatus("Logged out.");
+    }
+
+    async function initAuthOnLoad() {
+      if (!isAppwriteConfigured()) {
+        setAppVisibility(false);
+        setAuthStatus("Login to sync your data across devices.");
+        return;
+      }
+
+      try {
+        await ensureAppwriteReady();
+        const user = await account.get();
+        await afterLogin(user);
+      } catch {
+        setAppVisibility(false);
+        setAuthStatus("Login to sync your data across devices.");
+      }
+    }
+
+    async function afterLogin(user) {
+      currentUser = user;
+      setAppVisibility(true);
+      setAuthStatus(`Logged in as ${user.email}. Syncing your data...`);
+      await connectCloudSyncForUser(user.$id);
+    }
+
+    async function connectCloudSyncForUser(userId) {
+      const documentId = makeSyncDocumentId(`user-${userId}`);
+      if (!documentId) return;
 
       try {
         if (realtimeUnsubscribe) {
           realtimeUnsubscribe();
           realtimeUnsubscribe = null;
         }
+
+        const userPerms = [
+          Permission.create(Role.user(userId)),
+          Permission.read(Role.user(userId)),
+          Permission.update(Role.user(userId)),
+          Permission.delete(Role.user(userId))
+        ];
 
         const existing = await databases.listDocuments(
           APPWRITE_CONFIG.databaseId,
@@ -781,12 +895,7 @@
             APPWRITE_CONFIG.collectionId,
             documentId,
             { payload: serializeState() },
-            [
-              Permission.create(Role.any()),
-              Permission.read(Role.any()),
-              Permission.update(Role.any()),
-              Permission.delete(Role.any())
-            ]
+            userPerms
           );
         }
 
@@ -800,13 +909,19 @@
           }
         );
 
-        currentSyncId = nextSyncId;
-        localStorage.setItem(SYNC_ID_KEY, currentSyncId);
-        setSyncStatus(`Cloud sync connected via Appwrite: ${currentSyncId}`);
+        setAuthStatus(`Logged in as ${currentUser.email}. Cloud sync connected.`);
       } catch (error) {
         const msg = error?.message ? ` ${error.message}` : "";
-        setSyncStatus(`Cloud sync connect failed.${msg}`);
+        setAuthStatus(`Cloud sync connect failed.${msg}`);
       }
+    }
+
+    function clearState() {
+      state.priceList.length = 0;
+      state.cart.length = 0;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderPriceList();
+      renderCart();
     }
 
     function applyRemotePayload(payloadText) {
@@ -845,11 +960,11 @@
     }
 
     function queueCloudSave() {
-      if (!currentSyncId || !appwriteReady || isApplyingRemoteState) return;
+      if (!currentUser || !appwriteReady || isApplyingRemoteState) return;
       clearTimeout(cloudSaveTimer);
       cloudSaveTimer = setTimeout(() => {
-        pushStateToCloud(currentSyncId).catch(() => {
-          setSyncStatus("Cloud save failed. Data is still saved locally.");
+        pushStateToCloud(currentUser.$id).catch(() => {
+          setAuthStatus("Cloud save failed. Data is still saved locally.");
         });
       }, 300);
     }
@@ -861,10 +976,17 @@
       });
     }
 
-    async function pushStateToCloud(syncId) {
-      if (!appwriteReady || !syncId) return;
-      const documentId = makeSyncDocumentId(syncId);
+    async function pushStateToCloud(userId) {
+      if (!appwriteReady || !userId) return;
+      const documentId = makeSyncDocumentId(`user-${userId}`);
       const data = { payload: serializeState() };
+
+      const userPerms = [
+        Permission.create(Role.user(userId)),
+        Permission.read(Role.user(userId)),
+        Permission.update(Role.user(userId)),
+        Permission.delete(Role.user(userId))
+      ];
 
       try {
         await databases.updateDocument(
@@ -879,12 +1001,7 @@
           APPWRITE_CONFIG.collectionId,
           documentId,
           data,
-          [
-            Permission.create(Role.any()),
-            Permission.read(Role.any()),
-            Permission.update(Role.any()),
-            Permission.delete(Role.any())
-          ]
+          userPerms
         );
       }
     }
@@ -895,11 +1012,6 @@
       client.setEndpoint(APPWRITE_CONFIG.endpoint).setProject(APPWRITE_CONFIG.projectId);
       account = new Account(client);
       databases = new Databases(client);
-      try {
-        await account.createAnonymousSession();
-      } catch {
-        // Session may already exist.
-      }
       appwriteReady = true;
     }
 
@@ -921,11 +1033,8 @@
 
     renderPriceList();
     renderCart();
-
-    syncIdInput.value = currentSyncId;
-    if (currentSyncId && isAppwriteConfigured()) {
-      connectCloudSync();
-    }
+    setAppVisibility(false);
+    initAuthOnLoad();
   </script>
 </body>
 </html>
