@@ -250,6 +250,7 @@ function renderCartTabs() {
     tab.className = "secondary cart-tab-btn";
     tab.textContent = cart.name;
     if (!onPriceList && cart.id === state.activeCartId) {
+      tabWrap.classList.add("active");
       tab.classList.remove("secondary");
       tab.classList.add("active");
     }

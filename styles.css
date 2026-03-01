@@ -99,44 +99,57 @@ h1 {
 }
 
 .cart-tab-wrap {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
-  overflow: visible;
+  border-radius: 10px 10px 0 0;
+  background: #f8fafc;
+  overflow: hidden;
   position: relative;
-  padding-right: 18px;
+  padding-right: 6px;
+  min-height: 36px;
 }
 
 .cart-tab-btn {
   border: 0;
   border-right: 0;
+  background: transparent;
+  color: #334155;
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   border-radius: 0;
-  padding-right: 8px;
+  padding: 8px 8px 8px 10px;
+  font-size: 0.86rem;
+}
+
+.cart-tab-wrap.active {
+  background: #ffffff;
+  border-color: #94a3b8;
 }
 
 .cart-tab-remove {
-  position: absolute;
-  right: 5px;
-  top: 5px;
+  position: static;
   border: 0;
   background: transparent;
-  color: #94a3b8;
-  width: 12px;
-  min-width: 12px;
+  color: #64748b;
+  width: 16px;
+  min-width: 16px;
   padding: 0;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   line-height: 1;
-  height: 12px;
+  height: 16px;
   border-radius: 999px;
+  margin-left: 2px;
+  margin-right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cart-tab-remove:hover {
+  background: rgba(100, 116, 139, 0.20);
   color: #b91c1c;
 }
 
