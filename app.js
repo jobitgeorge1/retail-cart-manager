@@ -255,6 +255,89 @@ function scoreTextMatch(haystack, tokens) {
   return score;
 }
 
+function normalizeText(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenize(text) {
+  return normalizeText(text)
+    .split(" ")
+    .filter((token) => token.length > 1);
+}
+
+function includesAllTokens(text, tokens) {
+  const normalized = normalizeText(text);
+  return tokens.every((token) => normalized.includes(token));
+}
+
+function includesAnyToken(text, tokens) {
+  const normalized = normalizeText(text);
+  return tokens.some((token) => normalized.includes(token));
+}
+
+function getImageQueryParts(item) {
+  const name = String(item?.name || "").trim();
+  const brand = String(item?.brand || "").trim();
+  const size = String(item?.size || "").trim();
+  return { name, brand, size };
+}
+
+async function fetchOpenFoodFactsImageUrl(item) {
+  const { name, brand, size } = getImageQueryParts(item);
+  const query = [name, brand].filter(Boolean).join(" ").trim();
+  if (!query) return "";
+
+  const endpoint = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=25`;
+  const nameTokens = tokenize(name);
+  const brandTokens = tokenize(brand);
+  const sizeTokens = tokenize(size);
+
+  try {
+    const response = await fetch(endpoint);
+    if (!response.ok) return "";
+    const data = await response.json();
+    const products = Array.isArray(data?.products) ? data.products : [];
+
+    let bestUrl = "";
+    let bestScore = -1;
+
+    products.forEach((p) => {
+      const imageUrl = String(p?.image_front_small_url || p?.image_front_url || p?.image_url || "").trim();
+      if (!imageUrl.startsWith("http")) return;
+
+      const productName = String(p?.product_name || p?.product_name_en || "");
+      const productBrand = String(p?.brands || "");
+      const productQty = String(p?.quantity || "");
+      const productText = `${productName} ${productBrand} ${productQty}`;
+
+      if (nameTokens.length && !includesAnyToken(productText, nameTokens)) return;
+      if (brandTokens.length && !includesAnyToken(productText, brandTokens)) return;
+
+      let score = 0;
+      score += scoreTextMatch(productName, nameTokens) * 3;
+      score += scoreTextMatch(productBrand, brandTokens) * 4;
+      score += scoreTextMatch(productQty, sizeTokens) * 2;
+
+      if (nameTokens.length && includesAllTokens(productName, nameTokens)) score += 4;
+      if (brandTokens.length && includesAllTokens(productBrand, brandTokens)) score += 4;
+      if (sizeTokens.length && includesAnyToken(productQty, sizeTokens)) score += 2;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestUrl = imageUrl;
+      }
+    });
+
+    return bestScore >= 5 ? bestUrl : "";
+  } catch {
+    return "";
+  }
+}
+
 function chooseBestGoogleImage(items, queryTokens) {
   if (!Array.isArray(items) || !items.length) return "";
   const ranked = items
@@ -274,26 +357,40 @@ function chooseBestGoogleImage(items, queryTokens) {
 async function fetchGoogleImageUrl(item) {
   if (!GOOGLE_IMAGE_API_KEY || !GOOGLE_IMAGE_CX) return "";
 
-  const query = [item.brand, item.name, item.size, item.store]
+  const { name, brand, size } = getImageQueryParts(item);
+  const query = [name, brand, size, "product package"]
     .filter(Boolean)
     .join(" ")
     .trim();
   if (!query) return "";
 
   const endpoint = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(GOOGLE_IMAGE_API_KEY)}&cx=${encodeURIComponent(GOOGLE_IMAGE_CX)}&searchType=image&num=5&safe=active&q=${encodeURIComponent(query)}`;
+  const nameTokens = tokenize(name);
+  const brandTokens = tokenize(brand);
 
   try {
     const response = await fetch(endpoint);
     if (!response.ok) return "";
     const data = await response.json();
-    const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return chooseBestGoogleImage(data?.items || [], tokens);
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const filtered = items.filter((result) => {
+      const text = `${result?.title || ""} ${result?.snippet || ""} ${result?.image?.contextLink || ""}`;
+      if (nameTokens.length && !includesAnyToken(text, nameTokens)) return false;
+      if (brandTokens.length && !includesAnyToken(text, brandTokens)) return false;
+      return true;
+    });
+    const tokens = [...nameTokens, ...brandTokens, ...tokenize(size)];
+    const best = chooseBestGoogleImage(filtered, tokens);
+    return best || "";
   } catch {
     return "";
   }
 }
 
 async function fetchItemImageUrl(item) {
+  const off = await fetchOpenFoodFactsImageUrl(item);
+  if (off) return off;
+
   const google = await fetchGoogleImageUrl(item);
   if (google) return google;
 
