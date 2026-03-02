@@ -19,7 +19,13 @@
 
     <div class="nav tab-nav">
       <button id="menuPriceList">Price List</button>
-      <button id="menuHistory">History</button>
+      <div class="menu-wrap">
+        <button id="menuMoreBtn" class="secondary menu-trigger" aria-expanded="false">Menu ▾</button>
+        <div id="menuDropdown" class="menu-dropdown hidden">
+          <button id="menuHistory" type="button">History</button>
+          <button id="menuProfile" type="button">Profile</button>
+        </div>
+      </div>
       <div id="cartTabs" class="tab-bar"></div>
       <button id="addCartTabBtn" class="add-tab" title="Add Cart">＋</button>
     </div>
@@ -43,6 +49,7 @@
         <table>
           <thead>
             <tr>
+              <th>Icon</th>
               <th>Item</th>
               <th>Brand</th>
               <th>Store</th>
@@ -63,6 +70,28 @@
         <div id="cartRows"></div>
         <button id="addCartRowBtn" class="secondary">+ Add Item to Cart</button>
         <div class="totals">Cart Total: $<span id="cartTotal">0.00</span></div>
+      </div>
+    </section>
+
+    <section id="viewProfile" class="hidden">
+      <div class="card">
+        <h2 class="section-title">Profile</h2>
+        <div class="profile-grid">
+          <div><strong>Name:</strong> <span id="profileNameValue">-</span></div>
+          <div><strong>Email:</strong> <span id="profileEmailValue">-</span></div>
+          <div><strong>User ID:</strong> <span id="profileUserIdValue">-</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Reset Password</h2>
+        <div class="profile-password-grid">
+          <input id="currentPasswordInput" type="password" placeholder="Current password" />
+          <input id="newPasswordInput" type="password" placeholder="New password" />
+          <input id="confirmPasswordInput" type="password" placeholder="Confirm new password" />
+          <button id="resetPasswordBtn">Update Password</button>
+        </div>
+        <p id="profilePasswordStatus" class="muted">Use your current password to set a new one.</p>
       </div>
     </section>
 

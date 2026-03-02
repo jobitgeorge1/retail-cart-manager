@@ -11,17 +11,22 @@ let editingItemId = null;
 let pendingQuickAddRowIndex = null;
 let newCartEditingId = null;
 const historyState = { selectedName: "", selectedVariantId: "" };
+const DEFAULT_ITEM_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23e2e8f0'/%3E%3Cpath d='M16 24h32v24H16z' fill='%2394a3b8'/%3E%3Cpath d='M24 20h16v8H24z' fill='%2364748b'/%3E%3C/svg%3E";
 
 const userName = document.getElementById("userName");
 const logoutBtn = document.getElementById("logoutBtn");
 const syncStatus = document.getElementById("syncStatus");
 
 const menuPriceList = document.getElementById("menuPriceList");
+const menuMoreBtn = document.getElementById("menuMoreBtn");
+const menuDropdown = document.getElementById("menuDropdown");
 const menuHistory = document.getElementById("menuHistory");
+const menuProfile = document.getElementById("menuProfile");
 const cartTabs = document.getElementById("cartTabs");
 const addCartTabBtn = document.getElementById("addCartTabBtn");
 const viewPriceList = document.getElementById("viewPriceList");
 const viewHistory = document.getElementById("viewHistory");
+const viewProfile = document.getElementById("viewProfile");
 const viewCart = document.getElementById("viewCart");
 
 const newItemName = document.getElementById("newItemName");
@@ -52,15 +57,40 @@ const historyVariantSelect = document.getElementById("historyVariantSelect");
 const historyChart = document.getElementById("historyChart");
 const historyChartEmpty = document.getElementById("historyChartEmpty");
 const historyTableBody = document.getElementById("historyTableBody");
+const profileNameValue = document.getElementById("profileNameValue");
+const profileEmailValue = document.getElementById("profileEmailValue");
+const profileUserIdValue = document.getElementById("profileUserIdValue");
+const currentPasswordInput = document.getElementById("currentPasswordInput");
+const newPasswordInput = document.getElementById("newPasswordInput");
+const confirmPasswordInput = document.getElementById("confirmPasswordInput");
+const resetPasswordBtn = document.getElementById("resetPasswordBtn");
+const profilePasswordStatus = document.getElementById("profilePasswordStatus");
 
 document.addEventListener("click", (e) => {
+  if (!e.target.closest(".menu-wrap")) {
+    closeMenuDropdown();
+  }
   if (!e.target.closest(".combo") && !e.target.closest(".modal-card")) {
     closeAllCombos();
   }
 });
 
-menuPriceList.addEventListener("click", () => switchView("priceList"));
-menuHistory.addEventListener("click", () => switchView("history"));
+menuPriceList.addEventListener("click", () => {
+  closeMenuDropdown();
+  switchView("priceList");
+});
+menuMoreBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  toggleMenuDropdown();
+});
+menuHistory.addEventListener("click", () => {
+  closeMenuDropdown();
+  switchView("history");
+});
+menuProfile.addEventListener("click", () => {
+  closeMenuDropdown();
+  switchView("profile");
+});
 logoutBtn.addEventListener("click", logout);
 
 addCartTabBtn.addEventListener("click", () => {
@@ -153,8 +183,98 @@ historyVariantSelect.addEventListener("change", () => {
   renderHistoryView();
 });
 
+resetPasswordBtn.addEventListener("click", async () => {
+  const currentPassword = String(currentPasswordInput.value || "");
+  const nextPassword = String(newPasswordInput.value || "");
+  const confirmPassword = String(confirmPasswordInput.value || "");
+
+  if (!currentPassword || !nextPassword || !confirmPassword) {
+    setProfileStatus("Please fill all password fields.", true);
+    return;
+  }
+  if (nextPassword.length < 8) {
+    setProfileStatus("New password must be at least 8 characters.", true);
+    return;
+  }
+  if (nextPassword !== confirmPassword) {
+    setProfileStatus("New password and confirm password must match.", true);
+    return;
+  }
+
+  try {
+    await account.updatePassword(nextPassword, currentPassword);
+    currentPasswordInput.value = "";
+    newPasswordInput.value = "";
+    confirmPasswordInput.value = "";
+    setProfileStatus("Password updated successfully.", false);
+  } catch (error) {
+    const message = error?.message || "Failed to update password.";
+    setProfileStatus(message, true);
+  }
+});
+
 function setStatus(text) {
   syncStatus.textContent = text;
+}
+
+function setProfileStatus(text, isError) {
+  profilePasswordStatus.textContent = text;
+  profilePasswordStatus.classList.toggle("error-text", Boolean(isError));
+}
+
+function populateProfile() {
+  profileNameValue.textContent = currentUser?.name || "-";
+  profileEmailValue.textContent = currentUser?.email || "-";
+  profileUserIdValue.textContent = currentUser?.$id || "-";
+}
+
+function toggleMenuDropdown() {
+  const isHidden = menuDropdown.classList.contains("hidden");
+  menuDropdown.classList.toggle("hidden", !isHidden);
+  menuMoreBtn.setAttribute("aria-expanded", isHidden ? "true" : "false");
+}
+
+function closeMenuDropdown() {
+  menuDropdown.classList.add("hidden");
+  menuMoreBtn.setAttribute("aria-expanded", "false");
+}
+
+function getSafeImageUrl(imageUrl) {
+  const text = String(imageUrl || "").trim();
+  return text || DEFAULT_ITEM_IMAGE;
+}
+
+async function fetchItemImageUrl(item) {
+  const query = [item.brand, item.name, item.store].filter(Boolean).join(" ").trim();
+  if (!query) return "";
+
+  const endpoint = `https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=pageimages&piprop=thumbnail&pithumbsize=80`;
+
+  try {
+    const response = await fetch(endpoint);
+    if (!response.ok) return "";
+    const data = await response.json();
+    const pages = Object.values(data?.query?.pages || {});
+    const withImage = pages.find((page) => page?.thumbnail?.source);
+    return String(withImage?.thumbnail?.source || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+async function hydrateItemImage(itemId) {
+  const item = state.priceList.find((x) => x.id === itemId);
+  if (!item) return;
+  if (item.imageUrl && item.imageUrl !== DEFAULT_ITEM_IMAGE) return;
+
+  const imageUrl = await fetchItemImageUrl(item);
+  if (!imageUrl) return;
+
+  const latest = state.priceList.find((x) => x.id === itemId);
+  if (!latest) return;
+  latest.imageUrl = imageUrl;
+  saveState();
+  renderPriceList();
 }
 
 function createDefaultState() {
@@ -192,6 +312,7 @@ function setStateFrom(nextState) {
       brand: String(item.brand || "").trim(),
       store: String(item.store || "").trim(),
       size: String(item.size || "").trim(),
+      imageUrl: getSafeImageUrl(item.imageUrl),
       history: normalizeHistory(item.history, Number(item.price || 0))
     });
   });
@@ -214,16 +335,22 @@ function setStateFrom(nextState) {
 function switchView(view) {
   const isPriceList = view === "priceList";
   const isHistory = view === "history";
-  const isCart = !isPriceList && !isHistory;
+  const isProfile = view === "profile";
+  const isCart = !isPriceList && !isHistory && !isProfile;
+  const isMenuView = isHistory || isProfile;
 
   menuPriceList.classList.toggle("active", isPriceList);
+  menuMoreBtn.classList.toggle("active", isMenuView);
   menuHistory.classList.toggle("active", isHistory);
+  menuProfile.classList.toggle("active", isProfile);
   viewPriceList.classList.toggle("hidden", !isPriceList);
   viewHistory.classList.toggle("hidden", !isHistory);
+  viewProfile.classList.toggle("hidden", !isProfile);
   viewCart.classList.toggle("hidden", !isCart);
 
   renderCartTabs();
   if (isHistory) renderHistoryView();
+  if (isProfile) populateProfile();
 }
 
 function ensureCarts() {
@@ -381,6 +508,7 @@ function addPriceListItem(name, size, price, brand = "", store = "") {
     brand: cleanedBrand,
     store: cleanedStore,
     size: cleanedSize,
+    imageUrl: DEFAULT_ITEM_IMAGE,
     price: rounded,
     history: [{ ts: Date.now(), price: rounded }]
   };
@@ -390,6 +518,7 @@ function addPriceListItem(name, size, price, brand = "", store = "") {
   renderPriceList();
   renderCart();
   renderHistoryView();
+  hydrateItemImage(item.id);
   return item;
 }
 
@@ -432,11 +561,22 @@ function renderPriceList() {
     const tr = document.createElement("tr");
     const isEditing = editingItemId === item.id;
 
+    const tdIcon = document.createElement("td");
     const tdName = document.createElement("td");
     const tdBrand = document.createElement("td");
     const tdStore = document.createElement("td");
     const tdSize = document.createElement("td");
     const tdPrice = document.createElement("td");
+    const iconImg = document.createElement("img");
+    iconImg.className = "item-icon";
+    iconImg.alt = item.name ? `${item.name} icon` : "Item icon";
+    iconImg.src = getSafeImageUrl(item.imageUrl);
+    iconImg.referrerPolicy = "no-referrer";
+    iconImg.loading = "lazy";
+    iconImg.addEventListener("error", () => {
+      iconImg.src = DEFAULT_ITEM_IMAGE;
+    });
+    tdIcon.appendChild(iconImg);
 
     if (isEditing) {
       const nameInput = document.createElement("input");
@@ -573,6 +713,7 @@ function renderPriceList() {
       tdActions.appendChild(removeBtn);
     }
 
+    tr.appendChild(tdIcon);
     tr.appendChild(tdName);
     tr.appendChild(tdBrand);
     tr.appendChild(tdStore);
@@ -903,6 +1044,7 @@ function migrateState(parsed) {
         brand: String(item.brand || "").trim(),
         store: String(item.store || "").trim(),
         size: String(item.size || "").trim(),
+        imageUrl: getSafeImageUrl(item.imageUrl),
         history: normalizeHistory(item.history, Number(item.price || 0))
       }))
       : [],
@@ -1170,6 +1312,8 @@ async function logout() {
 
 async function init() {
   closeQuickAddModal();
+  closeMenuDropdown();
+  setProfileStatus("Use your current password to set a new one.", false);
 
   if (!isConfigured()) {
     setStatus("Appwrite is not configured.");
@@ -1178,6 +1322,7 @@ async function init() {
     renderPriceList();
     renderCart();
     renderHistoryView();
+    populateProfile();
     return;
   }
 
@@ -1188,6 +1333,7 @@ async function init() {
     renderPriceList();
     renderCart();
     renderHistoryView();
+    populateProfile();
 
     userName.textContent = currentUser.name || currentUser.email;
     setStatus("Connecting cloud sync...");
