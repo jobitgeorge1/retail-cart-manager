@@ -151,6 +151,7 @@ addPriceItemBtn.addEventListener("click", () => {
 cartSaveBtn.addEventListener("click", saveCartComposerRow);
 cartCancelEditBtn.addEventListener("click", () => {
   resetCartComposer(true);
+  renderCart();
 });
 cartItemToggleBtn.addEventListener("click", () => {
   if (cartItemMenu.classList.contains("hidden")) openCartItemMenu(true);
@@ -164,7 +165,11 @@ cartQuantityInput.addEventListener("keydown", (e) => {
 cartItemInput.addEventListener("focus", () => openCartItemMenu());
 cartItemInput.addEventListener("input", () => {
   const typed = String(cartItemInput.value || "").trim().toLowerCase();
-  const exact = state.priceList.find((item) => getItemLabel(item).toLowerCase() === typed);
+  const exact = state.priceList.find((item) =>
+    getItemLabel(item).toLowerCase() === typed
+    || getCartItemDisplayLabel(item).toLowerCase() === typed
+    || getItemBaseLabel(item).toLowerCase() === typed
+  );
   cartComposerSelectedItemId = exact ? exact.id : "";
   openCartItemMenu();
 });
@@ -186,7 +191,11 @@ cartItemInput.addEventListener("keydown", (e) => {
   e.preventDefault();
   const typedRaw = String(cartItemInput.value || "").trim();
   const typed = typedRaw.toLowerCase();
-  const exact = state.priceList.find((item) => getItemLabel(item).toLowerCase() === typed);
+  const exact = state.priceList.find((item) =>
+    getItemLabel(item).toLowerCase() === typed
+    || getCartItemDisplayLabel(item).toLowerCase() === typed
+    || getItemBaseLabel(item).toLowerCase() === typed
+  );
   if (exact) {
     selectCartComposerItem(exact);
     cartQuantityInput.focus();
@@ -211,7 +220,7 @@ quickAddBtn.addEventListener("click", () => {
   if (!item) return;
   closeQuickAddModal();
   cartComposerSelectedItemId = item.id;
-  cartItemInput.value = getItemLabel(item);
+  cartItemInput.value = getCartItemDisplayLabel(item);
   setCartComposerStatus("Item added to price list. Enter quantity and save to cart.");
   renderCart();
   cartQuantityInput.focus();
@@ -1129,13 +1138,16 @@ function bindCartMenuOptionNavigation(option) {
 
 function selectCartComposerItem(item) {
   cartComposerSelectedItemId = item.id;
-  cartItemInput.value = getItemLabel(item);
+  cartItemInput.value = getCartItemDisplayLabel(item);
   closeAllCombos();
 }
 
 function openCartItemMenu(showAll = false) {
   const query = showAll ? "" : String(cartItemInput.value || "").trim().toLowerCase();
-  const filtered = state.priceList.filter((item) => getItemLabel(item).toLowerCase().includes(query));
+  const filtered = state.priceList.filter((item) => {
+    const searchText = `${getItemLabel(item)} ${getCartItemDisplayLabel(item)} ${getItemBaseLabel(item)}`.toLowerCase();
+    return searchText.includes(query);
+  });
   cartItemMenu.innerHTML = "";
 
   if (!filtered.length) {
@@ -1166,7 +1178,7 @@ function openCartItemMenu(showAll = false) {
     const option = document.createElement("button");
     option.type = "button";
     option.className = "combo-option";
-    option.textContent = `${getItemLabel(item)}  ($${item.price.toFixed(2)})`;
+    option.textContent = `${getCartItemDisplayLabel(item)}  ($${item.price.toFixed(2)})`;
     option.addEventListener("click", () => {
       selectCartComposerItem(item);
       cartQuantityInput.focus();
@@ -1188,6 +1200,8 @@ function resetCartComposer(focusInput) {
   cartComposerSelectedItemId = "";
   cartItemInput.value = "";
   cartQuantityInput.value = "1";
+  cartSaveBtn.textContent = "Add to Cart";
+  cartCancelEditBtn.classList.add("hidden");
   closeAllCombos();
   setCartComposerStatus("Search an item, enter quantity, then add.");
   if (focusInput) cartItemInput.focus();
@@ -1229,7 +1243,7 @@ function startEditCartRow(index) {
   const item = state.priceList.find((x) => x.id === row.itemId);
   cartComposerEditIndex = index;
   cartComposerSelectedItemId = row.itemId || "";
-  cartItemInput.value = item ? getItemLabel(item) : "";
+  cartItemInput.value = item ? getCartItemDisplayLabel(item) : "";
   cartQuantityInput.value = String(Math.max(1, row.quantity || 1));
   setCartComposerStatus("Editing cart item. Update and save.");
   cartItemInput.focus();
@@ -1244,19 +1258,40 @@ function renderCartList(active) {
   }
   cartListEmpty.style.display = "none";
 
-  active.items.forEach((row, index) => {
+  const sortedRows = active.items
+    .map((row, index) => {
+      const item = state.priceList.find((x) => x.id === row.itemId);
+      return {
+        row,
+        index,
+        item,
+        storeKey: String(item?.store || "").trim().toLowerCase(),
+        brandKey: String(item?.brand || "").trim().toLowerCase(),
+        itemKey: String(item?.name || "").trim().toLowerCase()
+      };
+    })
+    .sort((a, b) =>
+      a.storeKey.localeCompare(b.storeKey)
+      || a.brandKey.localeCompare(b.brandKey)
+      || a.itemKey.localeCompare(b.itemKey)
+    );
+
+  sortedRows.forEach(({ row, index, item }) => {
     const tr = document.createElement("tr");
-    const item = state.priceList.find((x) => x.id === row.itemId);
     const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
     const line = item ? roundMoney(qty * item.price) : 0;
 
     const tdItem = document.createElement("td");
+    const tdBrand = document.createElement("td");
+    const tdStore = document.createElement("td");
     const tdQty = document.createElement("td");
     const tdLine = document.createElement("td");
     const tdActions = document.createElement("td");
     tdActions.className = "actions-inline";
 
-    tdItem.textContent = item ? getItemLabel(item) : "Missing item";
+    tdItem.textContent = item ? getItemBaseLabel(item) : "Missing item";
+    tdBrand.textContent = item?.brand || "-";
+    tdStore.textContent = item?.store || "-";
     tdQty.textContent = String(qty);
     tdLine.textContent = `$${line.toFixed(2)}`;
 
@@ -1279,6 +1314,8 @@ function renderCartList(active) {
     tdActions.appendChild(editBtn);
     tdActions.appendChild(deleteBtn);
     tr.appendChild(tdItem);
+    tr.appendChild(tdBrand);
+    tr.appendChild(tdStore);
     tr.appendChild(tdQty);
     tr.appendChild(tdLine);
     tr.appendChild(tdActions);
@@ -1294,6 +1331,22 @@ function getItemLabel(item) {
   const base = size ? `${name} - ${size}` : name;
   const details = [brand, store].filter(Boolean).join(" | ");
   return details ? `${base} (${details})` : base;
+}
+
+function getItemBaseLabel(item) {
+  const name = String(item?.name || "").trim();
+  const size = String(item?.size || "").trim();
+  return size ? `${name} - ${size}` : name;
+}
+
+function getCartItemDisplayLabel(item) {
+  const base = getItemBaseLabel(item);
+  const brand = String(item?.brand || "").trim();
+  const store = String(item?.store || "").trim();
+  const details = [];
+  if (brand) details.push(`Brand: ${brand}`);
+  if (store) details.push(`Store: ${store}`);
+  return details.length ? `${base} | ${details.join(" | ")}` : base;
 }
 
 function getVariantLabel(item) {
