@@ -9,6 +9,7 @@ let realtimeUnsubscribe = null;
 let currentUser = null;
 let editingItemId = null;
 let pendingQuickAddRowIndex = null;
+let newCartEditingId = null;
 
 const userName = document.getElementById("userName");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -55,6 +56,7 @@ addCartTabBtn.addEventListener("click", () => {
   const cart = { id: crypto.randomUUID(), name: `New Cart`, items: [] };
   state.carts.push(cart);
   state.activeCartId = cart.id;
+  newCartEditingId = cart.id;
   saveState();
   renderCartTabs();
   renderCart();
@@ -225,6 +227,7 @@ function removeCartById(cartId) {
   if (!ok) return;
 
   state.carts = state.carts.filter((c) => c.id !== cartId);
+  if (newCartEditingId === cartId) newCartEditingId = null;
   if (state.activeCartId === cartId) {
     state.activeCartId = state.carts[0]?.id || "";
   }
@@ -252,23 +255,36 @@ function renderCartTabs() {
       renderCart();
     });
 
-    const titleInput = document.createElement("input");
-    titleInput.type = "text";
-    titleInput.value = cart.name;
-    titleInput.addEventListener("click", (e) => e.stopPropagation());
-    titleInput.addEventListener("change", () => {
-      const next = String(titleInput.value || "").trim() || cart.name || "New Cart";
-      cart.name = next;
-      titleInput.value = next;
-      saveState();
-    });
-    titleInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        titleInput.blur();
-      }
-    });
-    tabWrap.appendChild(titleInput);
+    if (newCartEditingId === cart.id) {
+      const titleInput = document.createElement("input");
+      titleInput.type = "text";
+      titleInput.value = cart.name;
+      titleInput.addEventListener("click", (e) => e.stopPropagation());
+      const finalize = () => {
+        const next = String(titleInput.value || "").trim() || `Cart ${state.carts.length}`;
+        cart.name = next;
+        newCartEditingId = null;
+        saveState();
+        renderCartTabs();
+      };
+      titleInput.addEventListener("blur", finalize);
+      titleInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          finalize();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          newCartEditingId = null;
+          renderCartTabs();
+        }
+      });
+      tabWrap.appendChild(titleInput);
+    } else {
+      const title = document.createElement("span");
+      title.className = "tab-title";
+      title.textContent = cart.name;
+      tabWrap.appendChild(title);
+    }
 
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
