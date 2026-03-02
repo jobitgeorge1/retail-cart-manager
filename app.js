@@ -382,15 +382,16 @@ function getImageQueryParts(item) {
   return { name, brand, size };
 }
 
-async function fetchOpenFoodFactsCandidates(item, queryOverride = "") {
+async function fetchOpenFoodFactsCandidates(item, queryOverride = "", options = {}) {
+  const nameOnly = Boolean(options.nameOnly);
   const { name, brand, size } = getImageQueryParts(item);
-  const query = String(queryOverride || "").trim() || [name, brand].filter(Boolean).join(" ").trim();
+  const query = String(queryOverride || "").trim() || [nameOnly ? name : [name, brand].filter(Boolean).join(" ")].filter(Boolean).join(" ").trim();
   if (!query) return [];
 
   const endpoint = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=30`;
   const nameTokens = tokenize(name);
-  const brandTokens = tokenize(brand);
-  const sizeTokens = tokenize(size);
+  const brandTokens = nameOnly ? [] : tokenize(brand);
+  const sizeTokens = nameOnly ? [] : tokenize(size);
 
   try {
     const response = await fetch(endpoint);
@@ -429,11 +430,12 @@ async function fetchOpenFoodFactsCandidates(item, queryOverride = "") {
   }
 }
 
-async function fetchGoogleCandidates(item, queryOverride = "") {
+async function fetchGoogleCandidates(item, queryOverride = "", options = {}) {
+  const nameOnly = Boolean(options.nameOnly);
   if (!GOOGLE_IMAGE_API_KEY || !GOOGLE_IMAGE_CX) return [];
 
   const { name, brand, size } = getImageQueryParts(item);
-  const query = String(queryOverride || "").trim() || [name, brand, size, "product package"]
+  const query = String(queryOverride || "").trim() || [nameOnly ? name : [name, brand, size].filter(Boolean).join(" "), "product package"]
     .filter(Boolean)
     .join(" ")
     .trim();
@@ -441,7 +443,7 @@ async function fetchGoogleCandidates(item, queryOverride = "") {
 
   const endpoint = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(GOOGLE_IMAGE_API_KEY)}&cx=${encodeURIComponent(GOOGLE_IMAGE_CX)}&searchType=image&num=8&safe=active&q=${encodeURIComponent(query)}`;
   const nameTokens = tokenize(name);
-  const brandTokens = tokenize(brand);
+  const brandTokens = nameOnly ? [] : tokenize(brand);
 
   try {
     const response = await fetch(endpoint);
@@ -458,7 +460,7 @@ async function fetchGoogleCandidates(item, queryOverride = "") {
       const score =
         scoreTextMatch(text, nameTokens) * 3
         + scoreTextMatch(text, brandTokens) * 4
-        + scoreTextMatch(text, tokenize(size));
+        + scoreTextMatch(text, nameOnly ? [] : tokenize(size));
       return { url: link, score };
     }).filter(Boolean);
 
@@ -468,9 +470,10 @@ async function fetchGoogleCandidates(item, queryOverride = "") {
   }
 }
 
-async function fetchWikipediaCandidates(item, queryOverride = "") {
+async function fetchWikipediaCandidates(item, queryOverride = "", options = {}) {
+  const nameOnly = Boolean(options.nameOnly);
   const { name, brand, size } = getImageQueryParts(item);
-  const query = String(queryOverride || "").trim() || [brand, name, size].filter(Boolean).join(" ").trim();
+  const query = String(queryOverride || "").trim() || (nameOnly ? name : [brand, name, size].filter(Boolean).join(" ")).trim();
   if (!query) return [];
   const endpoint = `https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=pageimages&piprop=thumbnail&pithumbsize=80`;
 
@@ -487,11 +490,11 @@ async function fetchWikipediaCandidates(item, queryOverride = "") {
   }
 }
 
-async function fetchImageCandidates(item, queryOverride = "") {
+async function fetchImageCandidates(item, queryOverride = "", options = {}) {
   const [off, google, wiki] = await Promise.all([
-    fetchOpenFoodFactsCandidates(item, queryOverride),
-    fetchGoogleCandidates(item, queryOverride),
-    fetchWikipediaCandidates(item, queryOverride)
+    fetchOpenFoodFactsCandidates(item, queryOverride, options),
+    fetchGoogleCandidates(item, queryOverride, options),
+    fetchWikipediaCandidates(item, queryOverride, options)
   ]);
 
   const unique = [];
@@ -502,6 +505,22 @@ async function fetchImageCandidates(item, queryOverride = "") {
     unique.push(url);
   });
   return unique.slice(0, 12);
+}
+
+async function autoAssignImageForItem(itemId) {
+  const item = state.priceList.find((x) => x.id === itemId);
+  if (!item) return;
+  if (item.imageUrl && item.imageUrl !== DEFAULT_ITEM_IMAGE) return;
+
+  const candidates = await fetchImageCandidates(item, item.name, { nameOnly: true });
+  const best = candidates[0] || "";
+  if (!best) return;
+
+  const latest = state.priceList.find((x) => x.id === itemId);
+  if (!latest) return;
+  latest.imageUrl = best;
+  saveState();
+  renderPriceList();
 }
 
 function createDefaultState() {
@@ -750,6 +769,7 @@ function addPriceListItem(name, size, price, brand = "", store = "") {
   renderPriceList();
   renderCart();
   renderHistoryView();
+  autoAssignImageForItem(item.id);
   return item;
 }
 
