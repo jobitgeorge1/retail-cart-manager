@@ -10,6 +10,7 @@ let currentUser = null;
 let editingItemId = null;
 let pendingQuickAddRowIndex = null;
 let newCartEditingId = null;
+let imagePickerItemId = null;
 const historyState = { selectedName: "", selectedVariantId: "" };
 const DEFAULT_ITEM_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23e2e8f0'/%3E%3Cpath d='M16 24h32v24H16z' fill='%2394a3b8'/%3E%3Cpath d='M24 20h16v8H24z' fill='%2364748b'/%3E%3C/svg%3E";
 const GOOGLE_IMAGE_API_KEY = String(window.GOOGLE_IMAGE_API_KEY || "").trim();
@@ -53,6 +54,16 @@ const quickItemPrice = document.getElementById("quickItemPrice");
 const quickAddBtn = document.getElementById("quickAddBtn");
 const quickAddModal = document.getElementById("quickAddModal");
 const quickAddCancelBtn = document.getElementById("quickAddCancelBtn");
+const imagePickerModal = document.getElementById("imagePickerModal");
+const imageSearchInput = document.getElementById("imageSearchInput");
+const imageSearchBtn = document.getElementById("imageSearchBtn");
+const imagePickerStatus = document.getElementById("imagePickerStatus");
+const imageSuggestions = document.getElementById("imageSuggestions");
+const imageUrlInput = document.getElementById("imageUrlInput");
+const imageUseUrlBtn = document.getElementById("imageUseUrlBtn");
+const imageUploadInput = document.getElementById("imageUploadInput");
+const imageUploadBtn = document.getElementById("imageUploadBtn");
+const imagePickerCancelBtn = document.getElementById("imagePickerCancelBtn");
 
 const historyItemNameSelect = document.getElementById("historyItemNameSelect");
 const historyVariantSelect = document.getElementById("historyVariantSelect");
@@ -173,6 +184,45 @@ quickAddCancelBtn.addEventListener("click", closeQuickAddModal);
 quickAddModal.addEventListener("click", (e) => {
   if (e.target === quickAddModal) closeQuickAddModal();
 });
+imagePickerCancelBtn.addEventListener("click", closeImagePickerModal);
+imagePickerModal.addEventListener("click", (e) => {
+  if (e.target === imagePickerModal) closeImagePickerModal();
+});
+
+imageSearchBtn.addEventListener("click", () => {
+  runImageSearchForCurrent();
+});
+
+imageSearchInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  runImageSearchForCurrent();
+});
+
+imageUseUrlBtn.addEventListener("click", () => {
+  const url = String(imageUrlInput.value || "").trim();
+  if (!/^https?:\/\//i.test(url)) {
+    setImagePickerStatus("Enter a valid image URL starting with http or https.", true);
+    return;
+  }
+  applyItemImage(url);
+  closeImagePickerModal();
+});
+
+imageUploadBtn.addEventListener("click", async () => {
+  const file = imageUploadInput.files?.[0];
+  if (!file) {
+    setImagePickerStatus("Choose an image file first.", true);
+    return;
+  }
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    applyItemImage(dataUrl);
+    closeImagePickerModal();
+  } catch {
+    setImagePickerStatus("Failed to read image file.", true);
+  }
+});
 
 historyItemNameSelect.addEventListener("change", () => {
   historyState.selectedName = historyItemNameSelect.value;
@@ -286,12 +336,12 @@ function getImageQueryParts(item) {
   return { name, brand, size };
 }
 
-async function fetchOpenFoodFactsImageUrl(item) {
+async function fetchOpenFoodFactsCandidates(item, queryOverride = "") {
   const { name, brand, size } = getImageQueryParts(item);
-  const query = [name, brand].filter(Boolean).join(" ").trim();
-  if (!query) return "";
+  const query = String(queryOverride || "").trim() || [name, brand].filter(Boolean).join(" ").trim();
+  if (!query) return [];
 
-  const endpoint = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=25`;
+  const endpoint = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=30`;
   const nameTokens = tokenize(name);
   const brandTokens = tokenize(brand);
   const sizeTokens = tokenize(size);
@@ -302,8 +352,7 @@ async function fetchOpenFoodFactsImageUrl(item) {
     const data = await response.json();
     const products = Array.isArray(data?.products) ? data.products : [];
 
-    let bestUrl = "";
-    let bestScore = -1;
+    const candidates = [];
 
     products.forEach((p) => {
       const imageUrl = String(p?.image_front_small_url || p?.image_front_url || p?.image_url || "").trim();
@@ -325,105 +374,88 @@ async function fetchOpenFoodFactsImageUrl(item) {
       if (nameTokens.length && includesAllTokens(productName, nameTokens)) score += 4;
       if (brandTokens.length && includesAllTokens(productBrand, brandTokens)) score += 4;
       if (sizeTokens.length && includesAnyToken(productQty, sizeTokens)) score += 2;
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestUrl = imageUrl;
-      }
+      if (score >= 5) candidates.push({ url: imageUrl, score: score + 4 });
     });
 
-    return bestScore >= 5 ? bestUrl : "";
+    return candidates.sort((a, b) => b.score - a.score).map((c) => c.url).slice(0, 8);
   } catch {
-    return "";
+    return [];
   }
 }
 
-function chooseBestGoogleImage(items, queryTokens) {
-  if (!Array.isArray(items) || !items.length) return "";
-  const ranked = items
-    .map((item) => {
-      const title = String(item?.title || "");
-      const snippet = String(item?.snippet || "");
-      const contextLink = String(item?.image?.contextLink || "");
-      const link = String(item?.link || "");
-      const score = scoreTextMatch(`${title} ${snippet} ${contextLink}`, queryTokens);
-      return { link, score };
-    })
-    .filter((x) => x.link.startsWith("http"))
-    .sort((a, b) => b.score - a.score);
-  return ranked[0]?.link || "";
-}
-
-async function fetchGoogleImageUrl(item) {
-  if (!GOOGLE_IMAGE_API_KEY || !GOOGLE_IMAGE_CX) return "";
+async function fetchGoogleCandidates(item, queryOverride = "") {
+  if (!GOOGLE_IMAGE_API_KEY || !GOOGLE_IMAGE_CX) return [];
 
   const { name, brand, size } = getImageQueryParts(item);
-  const query = [name, brand, size, "product package"]
+  const query = String(queryOverride || "").trim() || [name, brand, size, "product package"]
     .filter(Boolean)
     .join(" ")
     .trim();
-  if (!query) return "";
+  if (!query) return [];
 
-  const endpoint = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(GOOGLE_IMAGE_API_KEY)}&cx=${encodeURIComponent(GOOGLE_IMAGE_CX)}&searchType=image&num=5&safe=active&q=${encodeURIComponent(query)}`;
+  const endpoint = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(GOOGLE_IMAGE_API_KEY)}&cx=${encodeURIComponent(GOOGLE_IMAGE_CX)}&searchType=image&num=8&safe=active&q=${encodeURIComponent(query)}`;
   const nameTokens = tokenize(name);
   const brandTokens = tokenize(brand);
 
   try {
     const response = await fetch(endpoint);
-    if (!response.ok) return "";
+    if (!response.ok) return [];
     const data = await response.json();
     const items = Array.isArray(data?.items) ? data.items : [];
-    const filtered = items.filter((result) => {
+    const ranked = items.map((result) => {
       const text = `${result?.title || ""} ${result?.snippet || ""} ${result?.image?.contextLink || ""}`;
-      if (nameTokens.length && !includesAnyToken(text, nameTokens)) return false;
-      if (brandTokens.length && !includesAnyToken(text, brandTokens)) return false;
-      return true;
-    });
-    const tokens = [...nameTokens, ...brandTokens, ...tokenize(size)];
-    const best = chooseBestGoogleImage(filtered, tokens);
-    return best || "";
+      if (nameTokens.length && !includesAnyToken(text, nameTokens)) return null;
+      if (brandTokens.length && !includesAnyToken(text, brandTokens)) return null;
+      const link = String(result?.link || "");
+      if (!link.startsWith("http")) return null;
+
+      const score =
+        scoreTextMatch(text, nameTokens) * 3
+        + scoreTextMatch(text, brandTokens) * 4
+        + scoreTextMatch(text, tokenize(size));
+      return { url: link, score };
+    }).filter(Boolean);
+
+    return ranked.sort((a, b) => b.score - a.score).map((x) => x.url).slice(0, 8);
   } catch {
-    return "";
+    return [];
   }
 }
 
-async function fetchItemImageUrl(item) {
-  const off = await fetchOpenFoodFactsImageUrl(item);
-  if (off) return off;
-
-  const google = await fetchGoogleImageUrl(item);
-  if (google) return google;
-
-  const query = [item.brand, item.name, item.size, item.store].filter(Boolean).join(" ").trim();
-  if (!query) return "";
-
+async function fetchWikipediaCandidates(item, queryOverride = "") {
+  const { name, brand, size } = getImageQueryParts(item);
+  const query = String(queryOverride || "").trim() || [brand, name, size].filter(Boolean).join(" ").trim();
+  if (!query) return [];
   const endpoint = `https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=pageimages&piprop=thumbnail&pithumbsize=80`;
 
   try {
     const response = await fetch(endpoint);
-    if (!response.ok) return "";
+    if (!response.ok) return [];
     const data = await response.json();
     const pages = Object.values(data?.query?.pages || {});
     const withImage = pages.find((page) => page?.thumbnail?.source);
-    return String(withImage?.thumbnail?.source || "").trim();
+    const url = String(withImage?.thumbnail?.source || "").trim();
+    return url ? [url] : [];
   } catch {
-    return "";
+    return [];
   }
 }
 
-async function hydrateItemImage(itemId) {
-  const item = state.priceList.find((x) => x.id === itemId);
-  if (!item) return;
-  if (item.imageUrl && item.imageUrl !== DEFAULT_ITEM_IMAGE) return;
+async function fetchImageCandidates(item, queryOverride = "") {
+  const [off, google, wiki] = await Promise.all([
+    fetchOpenFoodFactsCandidates(item, queryOverride),
+    fetchGoogleCandidates(item, queryOverride),
+    fetchWikipediaCandidates(item, queryOverride)
+  ]);
 
-  const imageUrl = await fetchItemImageUrl(item);
-  if (!imageUrl) return;
-
-  const latest = state.priceList.find((x) => x.id === itemId);
-  if (!latest) return;
-  latest.imageUrl = imageUrl;
-  saveState();
-  renderPriceList();
+  const unique = [];
+  const seen = new Set();
+  [...off, ...google, ...wiki].forEach((url) => {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    unique.push(url);
+  });
+  return unique.slice(0, 12);
 }
 
 function createDefaultState() {
@@ -611,6 +643,10 @@ function renderCartTabs() {
     removeBtn.textContent = "×";
     removeBtn.title = `Delete ${cart.name}`;
     removeBtn.disabled = state.carts.length <= 1;
+    removeBtn.addEventListener("mousedown", (e) => {
+      // Prevent input blur finalize from running before close click.
+      e.preventDefault();
+    });
     removeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       removeCartById(cart.id);
@@ -667,7 +703,6 @@ function addPriceListItem(name, size, price, brand = "", store = "") {
   renderPriceList();
   renderCart();
   renderHistoryView();
-  hydrateItemImage(item.id);
   return item;
 }
 
@@ -695,6 +730,104 @@ function closeQuickAddModal() {
   quickItemSize.value = "";
   quickItemPrice.value = "";
   pendingQuickAddRowIndex = null;
+}
+
+function setImagePickerStatus(text, isError = false) {
+  imagePickerStatus.textContent = text;
+  imagePickerStatus.classList.toggle("error-text", Boolean(isError));
+}
+
+function getImageSearchSeed(item) {
+  return [item.brand, item.name, item.size, item.store].filter(Boolean).join(" ").trim();
+}
+
+function openImagePickerModal(itemId) {
+  const item = state.priceList.find((x) => x.id === itemId);
+  if (!item) return;
+  imagePickerItemId = itemId;
+  imageSearchInput.value = getImageSearchSeed(item);
+  imageUrlInput.value = "";
+  imageUploadInput.value = "";
+  imageSuggestions.innerHTML = "";
+  setImagePickerStatus("Search and select the correct product image.");
+  imagePickerModal.classList.remove("hidden");
+  runImageSearchForCurrent();
+}
+
+function closeImagePickerModal() {
+  imagePickerModal.classList.add("hidden");
+  imagePickerItemId = null;
+  imageSuggestions.innerHTML = "";
+  imageSearchInput.value = "";
+  imageUrlInput.value = "";
+  imageUploadInput.value = "";
+}
+
+function applyItemImage(url) {
+  const item = state.priceList.find((x) => x.id === imagePickerItemId);
+  if (!item) return;
+  item.imageUrl = getSafeImageUrl(url);
+  saveState();
+  renderPriceList();
+  setImagePickerStatus("Image saved.");
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderImageSuggestions(urls) {
+  imageSuggestions.innerHTML = "";
+  if (!urls.length) {
+    setImagePickerStatus("No strong matches found. Paste URL or upload image.", true);
+    return;
+  }
+  setImagePickerStatus("Select the right image below.");
+
+  urls.forEach((url) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "image-option";
+
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "Suggested product";
+    img.loading = "lazy";
+    img.referrerPolicy = "no-referrer";
+    img.addEventListener("error", () => {
+      card.remove();
+      if (!imageSuggestions.children.length) {
+        setImagePickerStatus("No valid image suggestions. Paste URL or upload image.", true);
+      }
+    });
+
+    const label = document.createElement("span");
+    label.textContent = "Use this image";
+
+    card.appendChild(img);
+    card.appendChild(label);
+    card.addEventListener("click", () => {
+      applyItemImage(url);
+      closeImagePickerModal();
+    });
+    imageSuggestions.appendChild(card);
+  });
+}
+
+async function runImageSearchForCurrent() {
+  const item = state.priceList.find((x) => x.id === imagePickerItemId);
+  if (!item) return;
+
+  const override = String(imageSearchInput.value || "").trim();
+  setImagePickerStatus("Searching images...");
+  imageSuggestions.innerHTML = "";
+  const urls = await fetchImageCandidates(item, override);
+  renderImageSuggestions(urls);
 }
 
 function renderPriceList() {
@@ -829,7 +962,6 @@ function renderPriceList() {
         renderPriceList();
         renderCart();
         renderHistoryView();
-        if (imageIdentityChanged) hydrateItemImage(item.id);
       });
 
       const cancelBtn = document.createElement("button");
@@ -851,6 +983,13 @@ function renderPriceList() {
       tdActions.appendChild(cancelBtn);
       tdActions.appendChild(removeBtn);
     } else {
+      const imageBtn = document.createElement("button");
+      imageBtn.className = "secondary";
+      imageBtn.textContent = "Image";
+      imageBtn.addEventListener("click", () => {
+        openImagePickerModal(item.id);
+      });
+
       const editBtn = document.createElement("button");
       editBtn.className = "secondary";
       editBtn.textContent = "Edit";
@@ -866,6 +1005,7 @@ function renderPriceList() {
         deletePriceItem(item.id);
       });
 
+      tdActions.appendChild(imageBtn);
       tdActions.appendChild(editBtn);
       tdActions.appendChild(removeBtn);
     }
@@ -1469,6 +1609,7 @@ async function logout() {
 
 async function init() {
   closeQuickAddModal();
+  closeImagePickerModal();
   closeMenuDropdown();
   setProfileStatus("Use your current password to set a new one.", false);
 

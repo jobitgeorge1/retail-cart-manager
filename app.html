@@ -162,6 +162,31 @@
     </div>
   </div>
 
+  <div id="imagePickerModal" class="modal-overlay hidden">
+    <div class="modal-card image-picker-card">
+      <h2 class="section-title">Set Product Image</h2>
+      <div class="image-picker-row">
+        <input id="imageSearchInput" type="text" placeholder="Search product image..." />
+        <button id="imageSearchBtn" type="button">Search</button>
+      </div>
+      <div id="imagePickerStatus" class="muted">Search and select the correct product image.</div>
+      <div id="imageSuggestions" class="image-suggestions"></div>
+
+      <div class="image-picker-manual">
+        <input id="imageUrlInput" type="url" placeholder="Paste image URL (https://...)" />
+        <button id="imageUseUrlBtn" type="button" class="secondary">Use URL</button>
+      </div>
+      <div class="image-picker-manual">
+        <input id="imageUploadInput" type="file" accept="image/*" />
+        <button id="imageUploadBtn" type="button" class="secondary">Use Upload</button>
+      </div>
+
+      <div class="modal-actions">
+        <button id="imagePickerCancelBtn" type="button" class="secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     window.GOOGLE_IMAGE_API_KEY = window.GOOGLE_IMAGE_API_KEY || "";
     window.GOOGLE_IMAGE_CX = window.GOOGLE_IMAGE_CX || "";
