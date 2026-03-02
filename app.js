@@ -9,7 +9,6 @@ let realtimeUnsubscribe = null;
 let currentUser = null;
 let editingItemId = null;
 let pendingQuickAddRowIndex = null;
-let isAddingCartInline = false;
 
 const userName = document.getElementById("userName");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -53,8 +52,19 @@ document.addEventListener("click", (e) => {
 menuPriceList.addEventListener("click", () => switchView("priceList"));
 logoutBtn.addEventListener("click", logout);
 addCartTabBtn.addEventListener("click", () => {
-  isAddingCartInline = true;
+  const cart = { id: crypto.randomUUID(), name: `New Cart`, items: [] };
+  state.carts.push(cart);
+  state.activeCartId = cart.id;
+  saveState();
   renderCartTabs();
+  renderCart();
+  switchView("cart");
+
+  const input = cartTabs.querySelector(`.tab[data-cart-id="${cart.id}"] input`);
+  if (input) {
+    input.focus();
+    input.select();
+  }
 });
 
 addPriceItemBtn.addEventListener("click", () => {
@@ -203,19 +213,6 @@ function renderCartManager() {
   renderCartTabs();
 }
 
-function createCartFromInline(name) {
-  const cleaned = String(name || "").trim() || `Cart ${state.carts.length + 1}`;
-  const cart = { id: crypto.randomUUID(), name: cleaned, items: [] };
-  state.carts.push(cart);
-  state.activeCartId = cart.id;
-  isAddingCartInline = false;
-  saveState();
-  renderCartTabs();
-  renderCart();
-  switchView("cart");
-  focusRowItemInput(0);
-}
-
 function removeCartById(cartId) {
   if (state.carts.length <= 1) {
     alert("At least one cart is required.");
@@ -243,29 +240,39 @@ function renderCartTabs() {
 
   state.carts.forEach((cart) => {
     const tabWrap = document.createElement("div");
-    tabWrap.className = "cart-tab-wrap";
-
-    const tab = document.createElement("button");
-    tab.type = "button";
-    tab.className = "secondary cart-tab-btn";
-    tab.textContent = cart.name;
+    tabWrap.className = "tab";
+    tabWrap.dataset.cartId = cart.id;
     if (!onPriceList && cart.id === state.activeCartId) {
       tabWrap.classList.add("active");
-      tab.classList.remove("secondary");
-      tab.classList.add("active");
     }
-    tab.addEventListener("click", () => {
+    tabWrap.addEventListener("click", () => {
       state.activeCartId = cart.id;
-      isAddingCartInline = false;
       saveState();
       switchView("cart");
       renderCart();
     });
-    tabWrap.appendChild(tab);
+
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.value = cart.name;
+    titleInput.addEventListener("click", (e) => e.stopPropagation());
+    titleInput.addEventListener("change", () => {
+      const next = String(titleInput.value || "").trim() || cart.name || "New Cart";
+      cart.name = next;
+      titleInput.value = next;
+      saveState();
+    });
+    titleInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        titleInput.blur();
+      }
+    });
+    tabWrap.appendChild(titleInput);
 
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
-    removeBtn.className = "cart-tab-remove";
+    removeBtn.className = "close-btn";
     removeBtn.textContent = "×";
     removeBtn.title = `Delete ${cart.name}`;
     removeBtn.disabled = state.carts.length <= 1;
@@ -276,37 +283,6 @@ function renderCartTabs() {
     tabWrap.appendChild(removeBtn);
     cartTabs.appendChild(tabWrap);
   });
-
-  if (isAddingCartInline) {
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "cart-tab-input";
-    input.placeholder = "Cart name";
-    let finalized = false;
-    const finalize = () => {
-      if (finalized) return;
-      finalized = true;
-      const value = String(input.value || "").trim();
-      if (value) createCartFromInline(value);
-      else {
-        isAddingCartInline = false;
-        renderCartTabs();
-      }
-    };
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        finalize();
-      } else if (e.key === "Escape") {
-        finalized = true;
-        isAddingCartInline = false;
-        renderCartTabs();
-      }
-    });
-    input.addEventListener("blur", finalize);
-    cartTabs.appendChild(input);
-    setTimeout(() => input.focus(), 0);
-  }
 }
 
 function addPriceListItem(name, size, price, brand = "", store = "") {
