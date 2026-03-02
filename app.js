@@ -337,7 +337,7 @@ function switchView(view) {
   const isHistory = view === "history";
   const isProfile = view === "profile";
   const isCart = !isPriceList && !isHistory && !isProfile;
-  const isMenuView = isHistory || isProfile;
+  const isMenuView = isPriceList || isHistory || isProfile;
 
   menuPriceList.classList.toggle("active", isPriceList);
   menuMoreBtn.classList.toggle("active", isMenuView);
