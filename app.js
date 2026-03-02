@@ -572,6 +572,43 @@ function renderCart() {
     const menu = document.createElement("div");
     menu.className = "combo-menu hidden";
 
+    const getMenuOptions = () => Array.from(menu.querySelectorAll(".combo-option"));
+    const focusOptionAt = (idx) => {
+      const options = getMenuOptions();
+      if (!options.length) return;
+      const bounded = Math.max(0, Math.min(idx, options.length - 1));
+      options[bounded].focus();
+    };
+    const moveFocusedOption = (delta) => {
+      const options = getMenuOptions();
+      if (!options.length) return;
+      const current = options.indexOf(document.activeElement);
+      if (current === -1) {
+        focusOptionAt(delta > 0 ? 0 : options.length - 1);
+        return;
+      }
+      const next = Math.max(0, Math.min(current + delta, options.length - 1));
+      options[next].focus();
+    };
+    const bindOptionNavigation = (option) => {
+      option.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          moveFocusedOption(1);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          moveFocusedOption(-1);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          menu.classList.add("hidden");
+          itemInput.focus();
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          option.click();
+        }
+      });
+    };
+
     const renderOptions = (queryOverride) => {
       const query = typeof queryOverride === "string"
         ? queryOverride
@@ -595,6 +632,7 @@ function renderCart() {
             menu.classList.add("hidden");
             openQuickAddModal(typedQuery, index);
           });
+          bindOptionNavigation(addBtn);
           menu.appendChild(addBtn);
         }
         return;
@@ -612,6 +650,7 @@ function renderCart() {
           updateCartTotal();
           menu.classList.add("hidden");
         });
+        bindOptionNavigation(option);
         menu.appendChild(option);
       });
     };
@@ -638,7 +677,14 @@ function renderCart() {
     itemInput.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        openMenu(true);
+        openMenu();
+        focusOptionAt(0);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        openMenu();
+        focusOptionAt(getMenuOptions().length - 1);
         return;
       }
       if (e.key !== "Enter") return;
