@@ -1071,9 +1071,10 @@ function renderPriceList() {
 function deletePriceItem(itemId) {
   state.priceList = state.priceList.filter((x) => x.id !== itemId);
   state.carts.forEach((cart) => {
-    cart.items = cart.items.map((row) => row.itemId === itemId ? { ...row, itemId: "" } : row);
+    cart.items = cart.items.filter((row) => row.itemId !== itemId);
   });
   if (editingItemId === itemId) editingItemId = null;
+  if (cartComposerSelectedItemId === itemId) resetCartComposer(false);
   saveState();
   renderPriceList();
   renderCart();
