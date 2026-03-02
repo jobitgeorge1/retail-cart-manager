@@ -279,7 +279,7 @@ h1 {
   margin-right: 6px;
   font-weight: bold;
   cursor: pointer;
-  color: #64748b;
+  color: #0f766e;
   width: 18px;
   min-width: 18px;
   height: 18px;
@@ -287,19 +287,24 @@ h1 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 0;
-  background: transparent;
+  border: 1px solid rgba(15, 118, 110, 0.25);
+  background: rgba(15, 118, 110, 0.12);
   padding: 0;
   font-size: 0.82rem;
+  position: relative;
+  z-index: 2;
 }
 
 .tab.active .close-btn {
-  color: rgba(255, 255, 255, 0.9);
+  color: #ecfdf5;
+  background: rgba(16, 185, 129, 0.28);
+  border-color: rgba(236, 253, 245, 0.38);
 }
 
 .close-btn:hover {
-  background: rgba(239, 68, 68, 0.15);
-  color: #b91c1c;
+  background: rgba(185, 28, 28, 0.2);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .close-btn:disabled {
