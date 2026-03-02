@@ -12,6 +12,8 @@ let pendingQuickAddRowIndex = null;
 let newCartEditingId = null;
 const historyState = { selectedName: "", selectedVariantId: "" };
 const DEFAULT_ITEM_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23e2e8f0'/%3E%3Cpath d='M16 24h32v24H16z' fill='%2394a3b8'/%3E%3Cpath d='M24 20h16v8H24z' fill='%2364748b'/%3E%3C/svg%3E";
+const GOOGLE_IMAGE_API_KEY = String(window.GOOGLE_IMAGE_API_KEY || "").trim();
+const GOOGLE_IMAGE_CX = String(window.GOOGLE_IMAGE_CX || "").trim();
 
 const userName = document.getElementById("userName");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -244,8 +246,58 @@ function getSafeImageUrl(imageUrl) {
   return text || DEFAULT_ITEM_IMAGE;
 }
 
+function scoreTextMatch(haystack, tokens) {
+  const text = String(haystack || "").toLowerCase();
+  let score = 0;
+  tokens.forEach((token) => {
+    if (token && text.includes(token)) score += 1;
+  });
+  return score;
+}
+
+function chooseBestGoogleImage(items, queryTokens) {
+  if (!Array.isArray(items) || !items.length) return "";
+  const ranked = items
+    .map((item) => {
+      const title = String(item?.title || "");
+      const snippet = String(item?.snippet || "");
+      const contextLink = String(item?.image?.contextLink || "");
+      const link = String(item?.link || "");
+      const score = scoreTextMatch(`${title} ${snippet} ${contextLink}`, queryTokens);
+      return { link, score };
+    })
+    .filter((x) => x.link.startsWith("http"))
+    .sort((a, b) => b.score - a.score);
+  return ranked[0]?.link || "";
+}
+
+async function fetchGoogleImageUrl(item) {
+  if (!GOOGLE_IMAGE_API_KEY || !GOOGLE_IMAGE_CX) return "";
+
+  const query = [item.brand, item.name, item.size, item.store]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  if (!query) return "";
+
+  const endpoint = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(GOOGLE_IMAGE_API_KEY)}&cx=${encodeURIComponent(GOOGLE_IMAGE_CX)}&searchType=image&num=5&safe=active&q=${encodeURIComponent(query)}`;
+
+  try {
+    const response = await fetch(endpoint);
+    if (!response.ok) return "";
+    const data = await response.json();
+    const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+    return chooseBestGoogleImage(data?.items || [], tokens);
+  } catch {
+    return "";
+  }
+}
+
 async function fetchItemImageUrl(item) {
-  const query = [item.brand, item.name, item.store].filter(Boolean).join(" ").trim();
+  const google = await fetchGoogleImageUrl(item);
+  if (google) return google;
+
+  const query = [item.brand, item.name, item.size, item.store].filter(Boolean).join(" ").trim();
   if (!query) return "";
 
   const endpoint = `https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=pageimages&piprop=thumbnail&pithumbsize=80`;
@@ -662,17 +714,25 @@ function renderPriceList() {
           item.history.push({ ts: Date.now(), price: rounded });
         }
 
+        const imageIdentityChanged =
+          nextName.toLowerCase() !== String(item.name || "").toLowerCase()
+          || nextBrand.toLowerCase() !== String(item.brand || "").toLowerCase()
+          || nextStore.toLowerCase() !== String(item.store || "").toLowerCase()
+          || nextSize.toLowerCase() !== String(item.size || "").toLowerCase();
+
         item.name = nextName;
         item.brand = nextBrand;
         item.store = nextStore;
         item.size = nextSize;
         item.price = rounded;
+        if (imageIdentityChanged) item.imageUrl = DEFAULT_ITEM_IMAGE;
 
         editingItemId = null;
         saveState();
         renderPriceList();
         renderCart();
         renderHistoryView();
+        if (imageIdentityChanged) hydrateItemImage(item.id);
       });
 
       const cancelBtn = document.createElement("button");

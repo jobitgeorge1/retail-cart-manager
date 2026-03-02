@@ -19,11 +19,30 @@
 
     <div class="nav tab-nav">
       <div class="menu-wrap">
-        <button id="menuMoreBtn" class="secondary menu-trigger" aria-expanded="false">Menu ▾</button>
+        <button id="menuMoreBtn" class="secondary menu-trigger" aria-expanded="false" aria-label="Open menu" title="Menu">
+          <svg viewBox="0 0 24 24" class="menu-hamburger" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16"></path>
+          </svg>
+        </button>
         <div id="menuDropdown" class="menu-dropdown hidden">
-          <button id="menuPriceList" type="button">Price List</button>
-          <button id="menuHistory" type="button">History</button>
-          <button id="menuProfile" type="button">Profile</button>
+          <button id="menuPriceList" class="menu-item" type="button">
+            <span class="menu-item-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"></path></svg>
+            </span>
+            <span>Price List</span>
+          </button>
+          <button id="menuHistory" class="menu-item" type="button">
+            <span class="menu-item-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 6v6l4 2M12 3a9 9 0 1 0 9 9"></path></svg>
+            </span>
+            <span>History</span>
+          </button>
+          <button id="menuProfile" class="menu-item" type="button">
+            <span class="menu-item-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm-7 8a7 7 0 0 1 14 0"></path></svg>
+            </span>
+            <span>Profile</span>
+          </button>
         </div>
       </div>
       <div id="cartTabs" class="tab-bar"></div>
@@ -143,6 +162,10 @@
     </div>
   </div>
 
+  <script>
+    window.GOOGLE_IMAGE_API_KEY = window.GOOGLE_IMAGE_API_KEY || "";
+    window.GOOGLE_IMAGE_CX = window.GOOGLE_IMAGE_CX || "";
+  </script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

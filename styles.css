@@ -97,27 +97,99 @@ h1 {
 }
 
 .menu-trigger {
-  min-width: 108px;
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(148, 163, 184, 0.45);
+  color: #e5e7eb;
+}
+
+.menu-trigger:hover {
+  background: rgba(15, 23, 42, 1);
+}
+
+.menu-trigger.active {
+  background: #111827;
+  border-color: #111827;
+}
+
+.menu-hamburger {
+  width: 18px;
+  height: 18px;
+}
+
+.menu-hamburger path {
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  fill: none;
 }
 
 .menu-dropdown {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
-  min-width: 180px;
+  left: 0;
+  min-width: 230px;
   background: #fff;
   border: 1px solid #dbe1ea;
-  border-radius: 10px;
-  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.18);
-  padding: 6px;
-  z-index: 30;
+  border-radius: 12px;
+  box-shadow: 0 20px 34px rgba(15, 23, 42, 0.2);
+  padding: 8px;
+  z-index: 50;
 }
 
-.menu-dropdown button {
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   text-align: left;
-  padding: 9px 10px;
+  padding: 10px 11px;
   border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.menu-item:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.menu-item.active {
+  background: #ecfeff;
+  color: #0f766e;
+  border-color: #99f6e4;
+}
+
+.menu-item-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+}
+
+.menu-item-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.menu-item-icon path {
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.menu-item.active .menu-item-icon {
+  color: #0f766e;
 }
 
 .tab-nav {
@@ -689,7 +761,7 @@ td.actions-inline button {
   .card { padding: 12px; border-radius: 10px; }
   .nav { gap: 6px; margin-bottom: 12px; }
   .menu-wrap { width: auto; }
-  .menu-trigger { min-width: 100px; padding: 9px 12px; }
+  .menu-trigger { min-width: 38px; width: 38px; height: 38px; }
   .add-tab { padding: 8px 10px; font-size: 1.15rem; }
   .tab-bar {
     flex-wrap: nowrap;
@@ -718,7 +790,7 @@ td.actions-inline button {
   .menu-dropdown {
     left: 0;
     right: auto;
-    min-width: 160px;
+    min-width: 200px;
   }
   .profile-grid,
   .profile-password-grid { grid-template-columns: 1fr; }
