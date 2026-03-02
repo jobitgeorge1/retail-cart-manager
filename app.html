@@ -95,8 +95,34 @@
     <section id="viewCart">
       <div class="card">
         <h2 class="section-title">Cart Items</h2>
-        <div id="cartRows"></div>
-        <button id="addCartRowBtn" class="secondary">+ Add Item to Cart</button>
+        <div class="cart-composer">
+          <div class="combo">
+            <div class="combo-control">
+              <input id="cartItemInput" type="text" class="combo-input" placeholder="Search or select item..." />
+              <button id="cartItemToggleBtn" type="button" class="combo-toggle">▾</button>
+            </div>
+            <div id="cartItemMenu" class="combo-menu hidden"></div>
+          </div>
+          <input id="cartQuantityInput" type="number" min="1" step="1" value="1" />
+          <button id="cartSaveBtn" type="button">Add to Cart</button>
+          <button id="cartCancelEditBtn" type="button" class="secondary hidden">Cancel</button>
+        </div>
+        <p id="cartComposerStatus" class="muted">Search an item, enter quantity, then add.</p>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Line Total</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cartListBody"></tbody>
+          </table>
+        </div>
+        <p id="cartListEmpty" class="muted">No items in this cart yet.</p>
         <div class="totals">Cart Total: $<span id="cartTotal">0.00</span></div>
       </div>
     </section>

@@ -434,12 +434,12 @@ td.actions-inline button {
 
 .hidden { display: none; }
 
-.cart-row {
+.cart-composer {
   display: grid;
-  grid-template-columns: 1.2fr 120px 140px auto;
+  grid-template-columns: 1.3fr 110px auto auto;
   gap: 10px;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .combo {
@@ -832,7 +832,19 @@ td.actions-inline button {
   td.actions-inline { min-width: 230px; }
   .item-icon { width: 26px; height: 26px; }
   .row { grid-template-columns: 1fr; }
-  .cart-row { grid-template-columns: 1fr; }
+  .cart-composer {
+    grid-template-columns: minmax(0, 1fr) 80px auto auto;
+    gap: 6px;
+  }
+  .cart-composer input,
+  .cart-composer button {
+    font-size: 0.82rem;
+    padding: 8px 8px;
+  }
+  .cart-composer .combo-toggle {
+    min-width: 30px;
+    padding: 8px 6px;
+  }
   .history-controls { grid-template-columns: 1fr; }
   .totals { justify-content: flex-start; }
   .auth-row { flex-direction: column; align-items: stretch; }

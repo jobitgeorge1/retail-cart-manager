@@ -11,6 +11,8 @@ let editingItemId = null;
 let pendingQuickAddRowIndex = null;
 let newCartEditingId = null;
 let imagePickerItemId = null;
+let cartComposerSelectedItemId = "";
+let cartComposerEditIndex = null;
 const historyState = { selectedName: "", selectedVariantId: "" };
 const DEFAULT_ITEM_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23e2e8f0'/%3E%3Cpath d='M16 24h32v24H16z' fill='%2394a3b8'/%3E%3Cpath d='M24 20h16v8H24z' fill='%2364748b'/%3E%3C/svg%3E";
 const GOOGLE_IMAGE_API_KEY = String(window.GOOGLE_IMAGE_API_KEY || "").trim();
@@ -42,8 +44,15 @@ const addPriceItemBtn = document.getElementById("addPriceItemBtn");
 const priceListBody = document.getElementById("priceListBody");
 const priceListEmpty = document.getElementById("priceListEmpty");
 
-const cartRows = document.getElementById("cartRows");
-const addCartRowBtn = document.getElementById("addCartRowBtn");
+const cartItemInput = document.getElementById("cartItemInput");
+const cartItemToggleBtn = document.getElementById("cartItemToggleBtn");
+const cartItemMenu = document.getElementById("cartItemMenu");
+const cartQuantityInput = document.getElementById("cartQuantityInput");
+const cartSaveBtn = document.getElementById("cartSaveBtn");
+const cartCancelEditBtn = document.getElementById("cartCancelEditBtn");
+const cartComposerStatus = document.getElementById("cartComposerStatus");
+const cartListBody = document.getElementById("cartListBody");
+const cartListEmpty = document.getElementById("cartListEmpty");
 const cartTotal = document.getElementById("cartTotal");
 
 const quickItemName = document.getElementById("quickItemName");
@@ -139,12 +148,56 @@ addPriceItemBtn.addEventListener("click", () => {
   newItemName.focus();
 });
 
-addCartRowBtn.addEventListener("click", () => {
-  const active = getActiveCart();
-  active.items.push({ itemId: "", quantity: 1 });
-  saveState();
-  renderCart();
-  focusRowItemInput(active.items.length - 1);
+cartSaveBtn.addEventListener("click", saveCartComposerRow);
+cartCancelEditBtn.addEventListener("click", () => {
+  resetCartComposer(true);
+});
+cartItemToggleBtn.addEventListener("click", () => {
+  if (cartItemMenu.classList.contains("hidden")) openCartItemMenu(true);
+  else closeAllCombos();
+});
+cartQuantityInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  saveCartComposerRow();
+});
+cartItemInput.addEventListener("focus", () => openCartItemMenu());
+cartItemInput.addEventListener("input", () => {
+  const typed = String(cartItemInput.value || "").trim().toLowerCase();
+  const exact = state.priceList.find((item) => getItemLabel(item).toLowerCase() === typed);
+  cartComposerSelectedItemId = exact ? exact.id : "";
+  openCartItemMenu();
+});
+cartItemInput.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    openCartItemMenu();
+    focusCartMenuOption(0);
+    return;
+  }
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    openCartItemMenu();
+    focusCartMenuOption(getCartMenuOptions().length - 1);
+    return;
+  }
+  if (e.key !== "Enter") return;
+
+  e.preventDefault();
+  const typedRaw = String(cartItemInput.value || "").trim();
+  const typed = typedRaw.toLowerCase();
+  const exact = state.priceList.find((item) => getItemLabel(item).toLowerCase() === typed);
+  if (exact) {
+    selectCartComposerItem(exact);
+    cartQuantityInput.focus();
+    return;
+  }
+  const filtered = state.priceList.filter((item) => getItemLabel(item).toLowerCase().includes(typed));
+  if (!filtered.length && typedRaw) {
+    closeAllCombos();
+    const targetIndex = cartComposerEditIndex !== null ? cartComposerEditIndex : getActiveCart().items.length;
+    openQuickAddModal(typedRaw, targetIndex);
+  }
 });
 
 quickAddBtn.addEventListener("click", () => {
@@ -156,28 +209,12 @@ quickAddBtn.addEventListener("click", () => {
     quickItemStore.value
   );
   if (!item) return;
-
-  const active = getActiveCart();
-  let focusQtyIndex = null;
-
-  if (pendingQuickAddRowIndex !== null && active.items[pendingQuickAddRowIndex]) {
-    active.items[pendingQuickAddRowIndex].itemId = item.id;
-    focusQtyIndex = pendingQuickAddRowIndex;
-  } else {
-    const firstEmpty = active.items.find((row) => !row.itemId);
-    if (firstEmpty) {
-      firstEmpty.itemId = item.id;
-      focusQtyIndex = active.items.indexOf(firstEmpty);
-    } else {
-      active.items.push({ itemId: item.id, quantity: 1 });
-      focusQtyIndex = active.items.length - 1;
-    }
-  }
-
-  saveState();
   closeQuickAddModal();
+  cartComposerSelectedItemId = item.id;
+  cartItemInput.value = getItemLabel(item);
+  setCartComposerStatus("Item added to price list. Enter quantity and save to cart.");
   renderCart();
-  focusRowQuantityInput(focusQtyIndex);
+  cartQuantityInput.focus();
 });
 
 quickAddCancelBtn.addEventListener("click", closeQuickAddModal);
@@ -601,6 +638,7 @@ function renderCartTabs() {
 
     tabWrap.addEventListener("click", () => {
       state.activeCartId = cart.id;
+      resetCartComposer(false);
       saveState();
       switchView("cart");
       renderCart();
@@ -1034,254 +1072,218 @@ function deletePriceItem(itemId) {
 }
 
 function renderCart() {
-  cartRows.innerHTML = "";
   const active = getActiveCart();
-
-  if (!active.items.length) {
-    active.items.push({ itemId: "", quantity: 1 });
+  if (cartComposerEditIndex !== null && !active.items[cartComposerEditIndex]) {
+    resetCartComposer(false);
   }
-
-  active.items.forEach((row, index) => {
-    const container = document.createElement("div");
-    container.className = "cart-row";
-
-    const combo = document.createElement("div");
-    combo.className = "combo";
-    const control = document.createElement("div");
-    control.className = "combo-control";
-
-    const itemInput = document.createElement("input");
-    itemInput.type = "text";
-    itemInput.className = "combo-input";
-    itemInput.dataset.rowIndex = String(index);
-    itemInput.placeholder = state.priceList.length ? "Search or select item..." : "No items in price list";
-
-    const toggleBtn = document.createElement("button");
-    toggleBtn.type = "button";
-    toggleBtn.className = "combo-toggle";
-    toggleBtn.textContent = "▾";
-
-    const menu = document.createElement("div");
-    menu.className = "combo-menu hidden";
-
-    const getMenuOptions = () => Array.from(menu.querySelectorAll(".combo-option"));
-    const focusOptionAt = (idx) => {
-      const options = getMenuOptions();
-      if (!options.length) return;
-      const bounded = Math.max(0, Math.min(idx, options.length - 1));
-      options[bounded].focus();
-    };
-    const moveFocusedOption = (delta) => {
-      const options = getMenuOptions();
-      if (!options.length) return;
-      const current = options.indexOf(document.activeElement);
-      if (current === -1) {
-        focusOptionAt(delta > 0 ? 0 : options.length - 1);
-        return;
-      }
-      const next = Math.max(0, Math.min(current + delta, options.length - 1));
-      options[next].focus();
-    };
-    const bindOptionNavigation = (option) => {
-      option.addEventListener("keydown", (e) => {
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          moveFocusedOption(1);
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          moveFocusedOption(-1);
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          menu.classList.add("hidden");
-          itemInput.focus();
-        } else if (e.key === "Enter") {
-          e.preventDefault();
-          option.click();
-        }
-      });
-    };
-
-    const renderOptions = (queryOverride) => {
-      const query = typeof queryOverride === "string"
-        ? queryOverride
-        : String(itemInput.value || "").trim().toLowerCase();
-      const filtered = state.priceList.filter((item) => getItemLabel(item).toLowerCase().includes(query));
-
-      menu.innerHTML = "";
-      if (!filtered.length) {
-        const empty = document.createElement("div");
-        empty.className = "combo-empty";
-        empty.textContent = "No matching items";
-        menu.appendChild(empty);
-
-        const typedQuery = String(itemInput.value || "").trim();
-        if (typedQuery) {
-          const addBtn = document.createElement("button");
-          addBtn.type = "button";
-          addBtn.className = "combo-option";
-          addBtn.textContent = `+ Add "${typedQuery}"`;
-          addBtn.addEventListener("click", () => {
-            menu.classList.add("hidden");
-            openQuickAddModal(typedQuery, index);
-          });
-          bindOptionNavigation(addBtn);
-          menu.appendChild(addBtn);
-        }
-        return;
-      }
-
-      filtered.forEach((item) => {
-        const option = document.createElement("button");
-        option.type = "button";
-        option.className = "combo-option";
-        option.textContent = `${getItemLabel(item)}  ($${item.price.toFixed(2)})`;
-        option.addEventListener("click", () => {
-          row.itemId = item.id;
-          itemInput.value = getItemLabel(item);
-          saveState();
-          updateCartTotal();
-          menu.classList.add("hidden");
-        });
-        bindOptionNavigation(option);
-        menu.appendChild(option);
-      });
-    };
-
-    const openMenu = (showAll = false) => {
-      closeAllCombos();
-      renderOptions(showAll ? "" : undefined);
-      menu.classList.remove("hidden");
-    };
-
-    const selectedItem = state.priceList.find((item) => item.id === row.itemId);
-    itemInput.value = selectedItem ? getItemLabel(selectedItem) : "";
-
-    itemInput.addEventListener("input", (e) => {
-      const typed = String(e.target.value || "").trim().toLowerCase();
-      const match = state.priceList.find((item) => getItemLabel(item).toLowerCase() === typed);
-      row.itemId = match ? match.id : "";
-      saveState();
-      updateCartTotal();
-      openMenu();
-    });
-
-    itemInput.addEventListener("focus", openMenu);
-    itemInput.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        openMenu();
-        focusOptionAt(0);
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        openMenu();
-        focusOptionAt(getMenuOptions().length - 1);
-        return;
-      }
-      if (e.key !== "Enter") return;
-
-      e.preventDefault();
-      const typedRaw = String(itemInput.value || "").trim();
-      const typed = typedRaw.toLowerCase();
-      const exact = state.priceList.find((item) => getItemLabel(item).toLowerCase() === typed);
-      if (exact) {
-        row.itemId = exact.id;
-        itemInput.value = getItemLabel(exact);
-        saveState();
-        updateCartTotal();
-        menu.classList.add("hidden");
-        focusRowQuantityInput(index);
-        return;
-      }
-
-      const filtered = state.priceList.filter((item) => getItemLabel(item).toLowerCase().includes(typed));
-      if (!filtered.length && typedRaw) {
-        menu.classList.add("hidden");
-        openQuickAddModal(typedRaw, index);
-      }
-    });
-
-    toggleBtn.addEventListener("click", () => {
-      if (menu.classList.contains("hidden")) openMenu(true);
-      else menu.classList.add("hidden");
-    });
-
-    const qtyInput = document.createElement("input");
-    qtyInput.type = "number";
-    qtyInput.dataset.rowIndex = String(index);
-    qtyInput.min = "1";
-    qtyInput.step = "1";
-    qtyInput.value = String(row.quantity || 1);
-
-    qtyInput.addEventListener("input", (e) => {
-      const val = parseInt(e.target.value, 10);
-      row.quantity = Number.isNaN(val) || val < 1 ? 1 : val;
-      saveState();
-      updateCartTotal();
-    });
-
-    qtyInput.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter") return;
-      e.preventDefault();
-
-      const val = parseInt(qtyInput.value, 10);
-      row.quantity = Number.isNaN(val) || val < 1 ? 1 : val;
-      saveState();
-      updateCartTotal();
-
-      const nextIndex = index + 1;
-      if (!active.items[nextIndex]) {
-        active.items.push({ itemId: "", quantity: 1 });
-        saveState();
-        renderCart();
-      }
-      focusRowItemInput(nextIndex);
-    });
-
-    const lineTotal = document.createElement("div");
-    lineTotal.className = "muted";
-
-    const removeBtn = document.createElement("button");
-    removeBtn.className = "secondary";
-    removeBtn.textContent = "Remove";
-    removeBtn.addEventListener("click", () => {
-      active.items.splice(index, 1);
-      saveState();
-      renderCart();
-    });
-
-    control.appendChild(itemInput);
-    control.appendChild(toggleBtn);
-    combo.appendChild(control);
-    combo.appendChild(menu);
-
-    container.appendChild(combo);
-    container.appendChild(qtyInput);
-    container.appendChild(lineTotal);
-    container.appendChild(removeBtn);
-    cartRows.appendChild(container);
-
-    updateLineTotal(lineTotal, row);
-  });
-
+  renderCartList(active);
+  cartSaveBtn.textContent = cartComposerEditIndex === null ? "Add to Cart" : "Update Item";
+  cartCancelEditBtn.classList.toggle("hidden", cartComposerEditIndex === null);
   updateCartTotal();
 }
 
 function closeAllCombos() {
-  cartRows.querySelectorAll(".combo-menu").forEach((menu) => menu.classList.add("hidden"));
+  cartItemMenu.classList.add("hidden");
 }
 
-function focusRowItemInput(index) {
-  if (index === null || index === undefined) return;
-  const input = cartRows.querySelector(`.combo-input[data-row-index="${index}"]`);
-  if (input) input.focus();
+function getCartMenuOptions() {
+  return Array.from(cartItemMenu.querySelectorAll(".combo-option"));
 }
 
-function focusRowQuantityInput(index) {
-  if (index === null || index === undefined) return;
-  const input = cartRows.querySelector(`input[type="number"][data-row-index="${index}"]`);
-  if (input) input.focus();
+function focusCartMenuOption(index) {
+  const options = getCartMenuOptions();
+  if (!options.length) return;
+  const bounded = Math.max(0, Math.min(index, options.length - 1));
+  options[bounded].focus();
+}
+
+function moveCartMenuFocus(delta) {
+  const options = getCartMenuOptions();
+  if (!options.length) return;
+  const current = options.indexOf(document.activeElement);
+  if (current === -1) {
+    focusCartMenuOption(delta > 0 ? 0 : options.length - 1);
+    return;
+  }
+  focusCartMenuOption(current + delta);
+}
+
+function bindCartMenuOptionNavigation(option) {
+  option.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      moveCartMenuFocus(1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      moveCartMenuFocus(-1);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closeAllCombos();
+      cartItemInput.focus();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      option.click();
+    }
+  });
+}
+
+function selectCartComposerItem(item) {
+  cartComposerSelectedItemId = item.id;
+  cartItemInput.value = getItemLabel(item);
+  closeAllCombos();
+}
+
+function openCartItemMenu(showAll = false) {
+  const query = showAll ? "" : String(cartItemInput.value || "").trim().toLowerCase();
+  const filtered = state.priceList.filter((item) => getItemLabel(item).toLowerCase().includes(query));
+  cartItemMenu.innerHTML = "";
+
+  if (!filtered.length) {
+    const empty = document.createElement("div");
+    empty.className = "combo-empty";
+    empty.textContent = "No matching items";
+    cartItemMenu.appendChild(empty);
+
+    const typed = String(cartItemInput.value || "").trim();
+    if (typed) {
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "combo-option";
+      addBtn.textContent = `+ Add "${typed}"`;
+      addBtn.addEventListener("click", () => {
+        closeAllCombos();
+        const targetIndex = cartComposerEditIndex !== null ? cartComposerEditIndex : getActiveCart().items.length;
+        openQuickAddModal(typed, targetIndex);
+      });
+      bindCartMenuOptionNavigation(addBtn);
+      cartItemMenu.appendChild(addBtn);
+    }
+    cartItemMenu.classList.remove("hidden");
+    return;
+  }
+
+  filtered.forEach((item) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "combo-option";
+    option.textContent = `${getItemLabel(item)}  ($${item.price.toFixed(2)})`;
+    option.addEventListener("click", () => {
+      selectCartComposerItem(item);
+      cartQuantityInput.focus();
+    });
+    bindCartMenuOptionNavigation(option);
+    cartItemMenu.appendChild(option);
+  });
+
+  cartItemMenu.classList.remove("hidden");
+}
+
+function setCartComposerStatus(text, isError = false) {
+  cartComposerStatus.textContent = text;
+  cartComposerStatus.classList.toggle("error-text", Boolean(isError));
+}
+
+function resetCartComposer(focusInput) {
+  cartComposerEditIndex = null;
+  cartComposerSelectedItemId = "";
+  cartItemInput.value = "";
+  cartQuantityInput.value = "1";
+  closeAllCombos();
+  setCartComposerStatus("Search an item, enter quantity, then add.");
+  if (focusInput) cartItemInput.focus();
+}
+
+function saveCartComposerRow() {
+  const active = getActiveCart();
+  const qty = Math.max(1, parseInt(cartQuantityInput.value, 10) || 1);
+  cartQuantityInput.value = String(qty);
+
+  if (!cartComposerSelectedItemId) {
+    setCartComposerStatus("Select an item from the list before adding.", true);
+    cartItemInput.focus();
+    return;
+  }
+  const exists = state.priceList.some((item) => item.id === cartComposerSelectedItemId);
+  if (!exists) {
+    setCartComposerStatus("Selected item is no longer in price list.", true);
+    return;
+  }
+
+  if (cartComposerEditIndex !== null && active.items[cartComposerEditIndex]) {
+    active.items[cartComposerEditIndex] = { itemId: cartComposerSelectedItemId, quantity: qty };
+    setCartComposerStatus("Cart item updated.");
+  } else {
+    active.items.push({ itemId: cartComposerSelectedItemId, quantity: qty });
+    setCartComposerStatus("Item added to cart.");
+  }
+
+  saveState();
+  renderCart();
+  resetCartComposer(true);
+}
+
+function startEditCartRow(index) {
+  const active = getActiveCart();
+  const row = active.items[index];
+  if (!row) return;
+  const item = state.priceList.find((x) => x.id === row.itemId);
+  cartComposerEditIndex = index;
+  cartComposerSelectedItemId = row.itemId || "";
+  cartItemInput.value = item ? getItemLabel(item) : "";
+  cartQuantityInput.value = String(Math.max(1, row.quantity || 1));
+  setCartComposerStatus("Editing cart item. Update and save.");
+  cartItemInput.focus();
+  renderCart();
+}
+
+function renderCartList(active) {
+  cartListBody.innerHTML = "";
+  if (!active.items.length) {
+    cartListEmpty.style.display = "block";
+    return;
+  }
+  cartListEmpty.style.display = "none";
+
+  active.items.forEach((row, index) => {
+    const tr = document.createElement("tr");
+    const item = state.priceList.find((x) => x.id === row.itemId);
+    const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
+    const line = item ? roundMoney(qty * item.price) : 0;
+
+    const tdItem = document.createElement("td");
+    const tdQty = document.createElement("td");
+    const tdLine = document.createElement("td");
+    const tdActions = document.createElement("td");
+    tdActions.className = "actions-inline";
+
+    tdItem.textContent = item ? getItemLabel(item) : "Missing item";
+    tdQty.textContent = String(qty);
+    tdLine.textContent = `$${line.toFixed(2)}`;
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "secondary";
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", () => startEditCartRow(index));
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "secondary";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.addEventListener("click", () => {
+      active.items.splice(index, 1);
+      if (cartComposerEditIndex === index) resetCartComposer(false);
+      else if (cartComposerEditIndex !== null && cartComposerEditIndex > index) cartComposerEditIndex -= 1;
+      saveState();
+      renderCart();
+    });
+
+    tdActions.appendChild(editBtn);
+    tdActions.appendChild(deleteBtn);
+    tr.appendChild(tdItem);
+    tr.appendChild(tdQty);
+    tr.appendChild(tdLine);
+    tr.appendChild(tdActions);
+    cartListBody.appendChild(tr);
+  });
 }
 
 function getItemLabel(item) {
@@ -1308,23 +1310,13 @@ function isDuplicateByIdentity(item, identity) {
     && String(item.store || "").toLowerCase() === String(identity.store || "").toLowerCase();
 }
 
-function updateLineTotal(node, row) {
-  const item = state.priceList.find((x) => x.id === row.itemId);
-  if (!item) {
-    node.textContent = "Line Total: $0.00";
-    return 0;
-  }
-  const total = roundMoney((row.quantity || 1) * item.price);
-  node.textContent = `Line Total: $${total.toFixed(2)}`;
-  return total;
-}
-
 function updateCartTotal() {
   const active = getActiveCart();
   let total = 0;
-  const nodes = cartRows.querySelectorAll(".cart-row .muted");
-  active.items.forEach((row, idx) => {
-    total += updateLineTotal(nodes[idx], row);
+  active.items.forEach((row) => {
+    const item = state.priceList.find((x) => x.id === row.itemId);
+    if (!item) return;
+    total += roundMoney((Math.max(1, parseInt(row.quantity, 10) || 1)) * item.price);
   });
   cartTotal.textContent = roundMoney(total).toFixed(2);
 }
