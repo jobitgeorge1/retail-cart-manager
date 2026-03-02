@@ -1265,7 +1265,8 @@ function renderCartList(active) {
         row,
         index,
         item,
-        storeKey: String(item?.store || "").trim().toLowerCase(),
+        storeName: String(item?.store || "").trim() || "Unspecified Store",
+        storeKey: (String(item?.store || "").trim() || "unspecified store").toLowerCase(),
         brandKey: String(item?.brand || "").trim().toLowerCase(),
         itemKey: String(item?.name || "").trim().toLowerCase()
       };
@@ -1276,23 +1277,37 @@ function renderCartList(active) {
       || a.itemKey.localeCompare(b.itemKey)
     );
 
-  sortedRows.forEach(({ row, index, item }) => {
+  let currentStoreKey = "";
+
+  sortedRows.forEach(({ row, index, item, storeKey, storeName }) => {
+    if (storeKey !== currentStoreKey) {
+      currentStoreKey = storeKey;
+      const storeRow = document.createElement("tr");
+      storeRow.className = "cart-store-row";
+      const storeCell = document.createElement("td");
+      storeCell.colSpan = 6;
+      storeCell.textContent = `Store: ${storeName}`;
+      storeRow.appendChild(storeCell);
+      cartListBody.appendChild(storeRow);
+    }
+
     const tr = document.createElement("tr");
     const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
-    const line = item ? roundMoney(qty * item.price) : 0;
+    const price = item ? roundMoney(item.price) : 0;
+    const line = item ? roundMoney(qty * price) : 0;
 
     const tdItem = document.createElement("td");
     const tdBrand = document.createElement("td");
-    const tdStore = document.createElement("td");
     const tdQty = document.createElement("td");
+    const tdPrice = document.createElement("td");
     const tdLine = document.createElement("td");
     const tdActions = document.createElement("td");
     tdActions.className = "actions-inline";
 
     tdItem.textContent = item ? getItemBaseLabel(item) : "Missing item";
     tdBrand.textContent = item?.brand || "-";
-    tdStore.textContent = item?.store || "-";
     tdQty.textContent = String(qty);
+    tdPrice.textContent = `$${price.toFixed(2)}`;
     tdLine.textContent = `$${line.toFixed(2)}`;
 
     const editBtn = document.createElement("button");
@@ -1315,8 +1330,8 @@ function renderCartList(active) {
     tdActions.appendChild(deleteBtn);
     tr.appendChild(tdItem);
     tr.appendChild(tdBrand);
-    tr.appendChild(tdStore);
     tr.appendChild(tdQty);
+    tr.appendChild(tdPrice);
     tr.appendChild(tdLine);
     tr.appendChild(tdActions);
     cartListBody.appendChild(tr);

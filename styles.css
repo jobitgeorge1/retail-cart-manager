@@ -402,6 +402,13 @@ th, td {
   vertical-align: middle;
 }
 
+.cart-store-row td {
+  background: #f0fdfa;
+  color: #0f766e;
+  font-weight: 700;
+  border-bottom: 1px solid #ccfbf1;
+}
+
 .item-icon {
   width: 30px;
   height: 30px;
