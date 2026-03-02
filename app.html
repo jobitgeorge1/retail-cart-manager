@@ -19,6 +19,7 @@
 
     <div class="nav tab-nav">
       <button id="menuPriceList">Price List</button>
+      <button id="menuHistory">History</button>
       <div id="cartTabs" class="tab-bar"></div>
       <button id="addCartTabBtn" class="add-tab" title="Add Cart">＋</button>
     </div>
@@ -62,6 +63,31 @@
         <div id="cartRows"></div>
         <button id="addCartRowBtn" class="secondary">+ Add Item to Cart</button>
         <div class="totals">Cart Total: $<span id="cartTotal">0.00</span></div>
+      </div>
+    </section>
+
+    <section id="viewHistory" class="hidden">
+      <div class="card">
+        <h2 class="section-title">Price History</h2>
+        <div class="history-controls">
+          <select id="historyItemNameSelect"></select>
+          <select id="historyVariantSelect"></select>
+        </div>
+        <div id="historyChartEmpty" class="muted">Select item and variant to view trend.</div>
+        <div id="historyChart" class="history-chart hidden"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">History Records</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Price</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody"></tbody>
+        </table>
       </div>
     </section>
   </div>

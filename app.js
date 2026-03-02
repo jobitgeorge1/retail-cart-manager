@@ -10,15 +10,18 @@ let currentUser = null;
 let editingItemId = null;
 let pendingQuickAddRowIndex = null;
 let newCartEditingId = null;
+const historyState = { selectedName: "", selectedVariantId: "" };
 
 const userName = document.getElementById("userName");
 const logoutBtn = document.getElementById("logoutBtn");
 const syncStatus = document.getElementById("syncStatus");
 
 const menuPriceList = document.getElementById("menuPriceList");
+const menuHistory = document.getElementById("menuHistory");
 const cartTabs = document.getElementById("cartTabs");
 const addCartTabBtn = document.getElementById("addCartTabBtn");
 const viewPriceList = document.getElementById("viewPriceList");
+const viewHistory = document.getElementById("viewHistory");
 const viewCart = document.getElementById("viewCart");
 
 const newItemName = document.getElementById("newItemName");
@@ -44,6 +47,12 @@ const quickAddBtn = document.getElementById("quickAddBtn");
 const quickAddModal = document.getElementById("quickAddModal");
 const quickAddCancelBtn = document.getElementById("quickAddCancelBtn");
 
+const historyItemNameSelect = document.getElementById("historyItemNameSelect");
+const historyVariantSelect = document.getElementById("historyVariantSelect");
+const historyChart = document.getElementById("historyChart");
+const historyChartEmpty = document.getElementById("historyChartEmpty");
+const historyTableBody = document.getElementById("historyTableBody");
+
 document.addEventListener("click", (e) => {
   if (!e.target.closest(".combo") && !e.target.closest(".modal-card")) {
     closeAllCombos();
@@ -51,9 +60,11 @@ document.addEventListener("click", (e) => {
 });
 
 menuPriceList.addEventListener("click", () => switchView("priceList"));
+menuHistory.addEventListener("click", () => switchView("history"));
 logoutBtn.addEventListener("click", logout);
+
 addCartTabBtn.addEventListener("click", () => {
-  const cart = { id: crypto.randomUUID(), name: `New Cart`, items: [] };
+  const cart = { id: crypto.randomUUID(), name: "New Cart", items: [] };
   state.carts.push(cart);
   state.activeCartId = cart.id;
   newCartEditingId = cart.id;
@@ -131,6 +142,17 @@ quickAddModal.addEventListener("click", (e) => {
   if (e.target === quickAddModal) closeQuickAddModal();
 });
 
+historyItemNameSelect.addEventListener("change", () => {
+  historyState.selectedName = historyItemNameSelect.value;
+  historyState.selectedVariantId = "";
+  renderHistoryView();
+});
+
+historyVariantSelect.addEventListener("change", () => {
+  historyState.selectedVariantId = historyVariantSelect.value;
+  renderHistoryView();
+});
+
 function setStatus(text) {
   syncStatus.textContent = text;
 }
@@ -148,6 +170,18 @@ function getStorageKeyForUser(userId) {
   return `${STORAGE_KEY_PREFIX}-${userId}`;
 }
 
+function normalizeHistory(history, fallbackPrice) {
+  if (Array.isArray(history) && history.length) {
+    return history
+      .map((entry) => ({
+        ts: Number(entry.ts || Date.now()),
+        price: roundMoney(Number(entry.price || fallbackPrice || 0))
+      }))
+      .sort((a, b) => a.ts - b.ts);
+  }
+  return [{ ts: Date.now(), price: roundMoney(Number(fallbackPrice || 0)) }];
+}
+
 function setStateFrom(nextState) {
   state.priceList.length = 0;
   state.carts.length = 0;
@@ -157,7 +191,8 @@ function setStateFrom(nextState) {
       ...item,
       brand: String(item.brand || "").trim(),
       store: String(item.store || "").trim(),
-      size: String(item.size || "").trim()
+      size: String(item.size || "").trim(),
+      history: normalizeHistory(item.history, Number(item.price || 0))
     });
   });
 
@@ -178,10 +213,17 @@ function setStateFrom(nextState) {
 
 function switchView(view) {
   const isPriceList = view === "priceList";
+  const isHistory = view === "history";
+  const isCart = !isPriceList && !isHistory;
+
   menuPriceList.classList.toggle("active", isPriceList);
+  menuHistory.classList.toggle("active", isHistory);
   viewPriceList.classList.toggle("hidden", !isPriceList);
-  viewCart.classList.toggle("hidden", isPriceList);
+  viewHistory.classList.toggle("hidden", !isHistory);
+  viewCart.classList.toggle("hidden", !isCart);
+
   renderCartTabs();
+  if (isHistory) renderHistoryView();
 }
 
 function ensureCarts() {
@@ -239,15 +281,16 @@ function removeCartById(cartId) {
 function renderCartTabs() {
   ensureCarts();
   cartTabs.innerHTML = "";
-  const onPriceList = !viewPriceList.classList.contains("hidden");
+  const onCart = !viewCart.classList.contains("hidden");
 
   state.carts.forEach((cart) => {
     const tabWrap = document.createElement("div");
     tabWrap.className = "tab";
     tabWrap.dataset.cartId = cart.id;
-    if (!onPriceList && cart.id === state.activeCartId) {
+    if (onCart && cart.id === state.activeCartId) {
       tabWrap.classList.add("active");
     }
+
     tabWrap.addEventListener("click", () => {
       state.activeCartId = cart.id;
       saveState();
@@ -331,19 +374,22 @@ function addPriceListItem(name, size, price, brand = "", store = "") {
     return null;
   }
 
+  const rounded = roundMoney(price);
   const item = {
     id: crypto.randomUUID(),
     name: cleanedName,
     brand: cleanedBrand,
     store: cleanedStore,
     size: cleanedSize,
-    price: roundMoney(price)
+    price: rounded,
+    history: [{ ts: Date.now(), price: rounded }]
   };
 
   state.priceList.push(item);
   saveState();
   renderPriceList();
   renderCart();
+  renderHistoryView();
   return item;
 }
 
@@ -470,16 +516,23 @@ function renderPriceList() {
           return;
         }
 
+        const rounded = roundMoney(nextPrice);
+        if (rounded !== Number(item.price || 0)) {
+          item.history = normalizeHistory(item.history, Number(item.price || 0));
+          item.history.push({ ts: Date.now(), price: rounded });
+        }
+
         item.name = nextName;
         item.brand = nextBrand;
         item.store = nextStore;
         item.size = nextSize;
-        item.price = roundMoney(nextPrice);
+        item.price = rounded;
 
         editingItemId = null;
         saveState();
         renderPriceList();
         renderCart();
+        renderHistoryView();
       });
 
       const cancelBtn = document.createElement("button");
@@ -539,6 +592,7 @@ function deletePriceItem(itemId) {
   saveState();
   renderPriceList();
   renderCart();
+  renderHistoryView();
 }
 
 function renderCart() {
@@ -802,6 +856,13 @@ function getItemLabel(item) {
   return details ? `${base} (${details})` : base;
 }
 
+function getVariantLabel(item) {
+  const size = String(item.size || "").trim() || "-";
+  const brand = String(item.brand || "").trim() || "-";
+  const store = String(item.store || "").trim() || "-";
+  return `${size} | Brand: ${brand} | Store: ${store}`;
+}
+
 function isDuplicateByIdentity(item, identity) {
   return String(item.name || "").toLowerCase() === String(identity.name || "").toLowerCase()
     && String(item.size || "").toLowerCase() === String(identity.size || "").toLowerCase()
@@ -841,7 +902,8 @@ function migrateState(parsed) {
         ...item,
         brand: String(item.brand || "").trim(),
         store: String(item.store || "").trim(),
-        size: String(item.size || "").trim()
+        size: String(item.size || "").trim(),
+        history: normalizeHistory(item.history, Number(item.price || 0))
       }))
       : [],
     carts: [],
@@ -878,9 +940,7 @@ function migrateState(parsed) {
 function loadStateForUser(userId) {
   try {
     const raw = localStorage.getItem(getStorageKeyForUser(userId));
-    if (!raw) {
-      return createDefaultState();
-    }
+    if (!raw) return createDefaultState();
     return migrateState(JSON.parse(raw));
   } catch {
     return createDefaultState();
@@ -907,6 +967,7 @@ function applyRemotePayload(payloadText) {
     renderCartManager();
     renderPriceList();
     renderCart();
+    renderHistoryView();
     isApplyingRemoteState = false;
   } catch {
     // Ignore invalid payload.
@@ -928,6 +989,118 @@ function serializeState() {
     priceList: state.priceList,
     carts: state.carts,
     activeCartId: state.activeCartId
+  });
+}
+
+function renderHistoryView() {
+  const names = [...new Set(state.priceList.map((x) => x.name).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+
+  historyItemNameSelect.innerHTML = "";
+  if (!names.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No items available";
+    historyItemNameSelect.appendChild(opt);
+    historyVariantSelect.innerHTML = "";
+    historyChart.classList.add("hidden");
+    historyChartEmpty.textContent = "No items in price list.";
+    historyChartEmpty.classList.remove("hidden");
+    historyTableBody.innerHTML = "";
+    return;
+  }
+
+  if (!historyState.selectedName || !names.includes(historyState.selectedName)) {
+    historyState.selectedName = names[0];
+  }
+
+  names.forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    if (name === historyState.selectedName) opt.selected = true;
+    historyItemNameSelect.appendChild(opt);
+  });
+
+  const variants = state.priceList.filter((x) => x.name === historyState.selectedName);
+  historyVariantSelect.innerHTML = "";
+  if (!variants.length) {
+    historyChart.classList.add("hidden");
+    historyChartEmpty.textContent = "No variants found for selected item.";
+    historyChartEmpty.classList.remove("hidden");
+    historyTableBody.innerHTML = "";
+    return;
+  }
+
+  if (!historyState.selectedVariantId || !variants.some((v) => v.id === historyState.selectedVariantId)) {
+    historyState.selectedVariantId = variants[0].id;
+  }
+
+  variants.forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    opt.textContent = getVariantLabel(item);
+    if (item.id === historyState.selectedVariantId) opt.selected = true;
+    historyVariantSelect.appendChild(opt);
+  });
+
+  const selected = variants.find((x) => x.id === historyState.selectedVariantId) || variants[0];
+  const history = normalizeHistory(selected.history, Number(selected.price || 0));
+  selected.history = history;
+
+  renderHistoryChart(history);
+  renderHistoryTable(history);
+}
+
+function renderHistoryChart(history) {
+  if (!history.length) {
+    historyChart.classList.add("hidden");
+    historyChartEmpty.textContent = "No history available.";
+    historyChartEmpty.classList.remove("hidden");
+    return;
+  }
+
+  historyChart.classList.remove("hidden");
+  historyChartEmpty.classList.add("hidden");
+
+  const width = 760;
+  const height = 240;
+  const pad = 28;
+  const prices = history.map((h) => h.price);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const spread = max - min || 1;
+
+  const pts = history.map((entry, idx) => {
+    const x = pad + (history.length === 1 ? 0 : (idx / (history.length - 1)) * (width - pad * 2));
+    const y = height - pad - ((entry.price - min) / spread) * (height - pad * 2);
+    return { x, y, ts: entry.ts, price: entry.price };
+  });
+
+  const poly = pts.map((p) => `${p.x},${p.y}`).join(" ");
+  historyChart.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" class="history-chart-svg" aria-label="Price trend chart">
+      <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" class="history-axis" />
+      <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" class="history-axis" />
+      <polyline points="${poly}" class="history-line" />
+      ${pts.map((p) => `<circle cx="${p.x}" cy="${p.y}" r="3" class="history-point"><title>${new Date(p.ts).toLocaleString()} - $${p.price.toFixed(2)}</title></circle>`).join("")}
+      <text x="${pad}" y="${pad - 8}" class="history-label">$${max.toFixed(2)}</text>
+      <text x="${pad}" y="${height - pad + 16}" class="history-label">$${min.toFixed(2)}</text>
+    </svg>
+  `;
+}
+
+function renderHistoryTable(history) {
+  historyTableBody.innerHTML = "";
+  [...history].reverse().forEach((entry) => {
+    const tr = document.createElement("tr");
+    const tdDate = document.createElement("td");
+    const tdPrice = document.createElement("td");
+    tdDate.textContent = new Date(entry.ts).toLocaleString();
+    tdPrice.textContent = `$${entry.price.toFixed(2)}`;
+    tr.appendChild(tdDate);
+    tr.appendChild(tdPrice);
+    historyTableBody.appendChild(tr);
   });
 }
 
@@ -1004,6 +1177,7 @@ async function init() {
     renderCartTabs();
     renderPriceList();
     renderCart();
+    renderHistoryView();
     return;
   }
 
@@ -1013,6 +1187,7 @@ async function init() {
     renderCartTabs();
     renderPriceList();
     renderCart();
+    renderHistoryView();
 
     userName.textContent = currentUser.name || currentUser.email;
     setStatus("Connecting cloud sync...");

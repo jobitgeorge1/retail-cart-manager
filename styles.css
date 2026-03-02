@@ -568,9 +568,54 @@ td.actions-inline button {
   margin-bottom: 8px;
 }
 
+.history-controls {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.history-chart {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.history-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.history-axis {
+  stroke: #94a3b8;
+  stroke-width: 1;
+}
+
+.history-line {
+  fill: none;
+  stroke: #0f766e;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.history-point {
+  fill: #0f766e;
+  stroke: #ffffff;
+  stroke-width: 1.2;
+}
+
+.history-label {
+  fill: #475569;
+  font-size: 11px;
+}
+
 @media (max-width: 720px) {
   .row { grid-template-columns: 1fr; }
   .cart-row { grid-template-columns: 1fr; }
+  .history-controls { grid-template-columns: 1fr; }
   .totals { justify-content: flex-start; }
   .auth-row { flex-direction: column; align-items: stretch; }
   .auth-actions { display: grid; grid-template-columns: 1fr; }
