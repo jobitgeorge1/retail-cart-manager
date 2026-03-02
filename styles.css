@@ -438,6 +438,13 @@ th, td {
   border-bottom: 1px solid #ccfbf1;
 }
 
+.cart-item-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
 .item-icon {
   width: 30px;
   height: 30px;

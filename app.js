@@ -1294,21 +1294,21 @@ function renderCartList(active) {
 
     const tr = document.createElement("tr");
     const qty = Math.max(1, parseInt(row.quantity, 10) || 1);
-    const price = item ? roundMoney(item.price) : 0;
-    const line = item ? roundMoney(qty * price) : 0;
+    const line = item ? roundMoney(qty * roundMoney(item.price)) : 0;
 
     const tdItem = document.createElement("td");
+    const tdSize = document.createElement("td");
     const tdBrand = document.createElement("td");
     const tdQty = document.createElement("td");
-    const tdPrice = document.createElement("td");
     const tdLine = document.createElement("td");
     const tdActions = document.createElement("td");
     tdActions.className = "actions-inline";
 
-    tdItem.textContent = item ? getItemBaseLabel(item) : "Missing item";
+    tdItem.textContent = item?.name || "Missing item";
+    tdItem.className = "cart-item-name";
+    tdSize.textContent = item?.size || "-";
     tdBrand.textContent = item?.brand || "-";
     tdQty.textContent = String(qty);
-    tdPrice.textContent = `$${price.toFixed(2)}`;
     tdLine.textContent = `$${line.toFixed(2)}`;
 
     const editBtn = document.createElement("button");
@@ -1330,9 +1330,9 @@ function renderCartList(active) {
     tdActions.appendChild(editBtn);
     tdActions.appendChild(deleteBtn);
     tr.appendChild(tdItem);
+    tr.appendChild(tdSize);
     tr.appendChild(tdBrand);
     tr.appendChild(tdQty);
-    tr.appendChild(tdPrice);
     tr.appendChild(tdLine);
     tr.appendChild(tdActions);
     cartListBody.appendChild(tr);
