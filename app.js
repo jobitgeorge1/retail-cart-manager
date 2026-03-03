@@ -23,11 +23,11 @@ const logoutBtn = document.getElementById("logoutBtn");
 const syncStatus = document.getElementById("syncStatus");
 const tabCartBtn = document.getElementById("tabCartBtn");
 const tabPriceListBtn = document.getElementById("tabPriceListBtn");
-const tabProfileBtn = document.getElementById("tabProfileBtn");
+const tabHistoryBtn = document.getElementById("tabHistoryBtn");
 
 const menuMoreBtn = document.getElementById("menuMoreBtn");
 const menuDropdown = document.getElementById("menuDropdown");
-const menuHistory = document.getElementById("menuHistory");
+const menuProfile = document.getElementById("menuProfile");
 const cartTabs = document.getElementById("cartTabs");
 const addCartTabBtn = document.getElementById("addCartTabBtn");
 const viewPriceList = document.getElementById("viewPriceList");
@@ -102,14 +102,14 @@ menuMoreBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   toggleMenuDropdown();
 });
-menuHistory.addEventListener("click", () => {
+menuProfile.addEventListener("click", () => {
   closeMenuDropdown();
-  switchView("history");
+  switchView("profile");
 });
 logoutBtn.addEventListener("click", logout);
 tabCartBtn.addEventListener("click", () => switchView("cart"));
 tabPriceListBtn.addEventListener("click", () => switchView("priceList"));
-tabProfileBtn.addEventListener("click", () => switchView("profile"));
+tabHistoryBtn.addEventListener("click", () => switchView("history"));
 
 addCartTabBtn.addEventListener("click", () => {
   const cart = { id: crypto.randomUUID(), name: "New Cart", items: [] };
@@ -580,10 +580,10 @@ function switchView(view) {
   const isProfile = view === "profile";
   const isCart = !isPriceList && !isHistory && !isProfile;
   menuMoreBtn.classList.toggle("active", isHistory);
-  menuHistory.classList.toggle("active", isHistory);
+  menuProfile.classList.toggle("active", isProfile);
   tabCartBtn.classList.toggle("active", isCart);
   tabPriceListBtn.classList.toggle("active", isPriceList);
-  tabProfileBtn.classList.toggle("active", isProfile);
+  tabHistoryBtn.classList.toggle("active", isHistory);
   viewPriceList.classList.toggle("hidden", !isPriceList);
   viewHistory.classList.toggle("hidden", !isHistory);
   viewProfile.classList.toggle("hidden", !isProfile);

@@ -433,23 +433,21 @@ export function HomeScreen() {
           </Pressable>
         </View>
 
-        {view !== 'history' && (
-          <View style={styles.tabBar}>
-            {([
-              ['cart', 'Carts'],
-              ['price', 'Price List'],
-              ['profile', 'Profile'],
-            ] as const).map(([key, label]) => (
-              <Pressable
-                key={key}
-                style={[styles.tabBtn, view === key && styles.tabBtnActive]}
-                onPress={() => setView(key)}
-              >
-                <Text style={[styles.tabBtnText, view === key && styles.tabBtnTextActive]}>{label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
+        <View style={styles.tabBar}>
+          {([
+            ['cart', 'Carts'],
+            ['price', 'Price List'],
+            ['history', 'History'],
+          ] as const).map(([key, label]) => (
+            <Pressable
+              key={key}
+              style={[styles.tabBtn, view === key && styles.tabBtnActive]}
+              onPress={() => setView(key)}
+            >
+              <Text style={[styles.tabBtnText, view === key && styles.tabBtnTextActive]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
 
         {view === 'cart' && (
           <Animated.View style={[styles.panel, panelAnimatedStyle]}>
@@ -666,8 +664,8 @@ export function HomeScreen() {
         <Animated.View style={[styles.menuBackdrop, { opacity: menuAnim }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={closeNameMenu} />
           <Animated.View style={[styles.nameMenuCard, menuCardAnimatedStyle]}>
-            <Pressable style={styles.nameMenuItem} onPress={() => { setView('history'); closeNameMenu(); }}>
-              <Text style={styles.nameMenuItemText}>History</Text>
+            <Pressable style={styles.nameMenuItem} onPress={() => { setView('profile'); closeNameMenu(); }}>
+              <Text style={styles.nameMenuItemText}>Profile</Text>
             </Pressable>
             <Pressable style={styles.nameMenuItem} onPress={async () => { closeNameMenu(); await logout(); }}>
               <Text style={[styles.nameMenuItemText, styles.nameMenuDanger]}>Logout</Text>
@@ -953,8 +951,8 @@ const styles = StyleSheet.create({
       android: { elevation: 2 },
     }),
   },
-  infoLabel: { color: '#64748b', fontSize: 12, marginBottom: 2, marginTop: 8 },
-  infoValue: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
+  infoLabel: { color: '#475569', fontSize: 12, marginBottom: 2, marginTop: 8, fontWeight: '600' },
+  infoValue: { color: '#020617', fontSize: 16, fontWeight: '800' },
   emptyText: { color: '#64748b', marginVertical: 8 },
 
   historySelectorRow: { gap: 8, paddingBottom: 10 },

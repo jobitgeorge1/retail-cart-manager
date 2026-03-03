@@ -857,6 +857,17 @@ td.actions-inline button {
   gap: 10px;
 }
 
+.profile-grid strong {
+  color: #334155;
+}
+
+#profileNameValue,
+#profileEmailValue,
+#profileUserIdValue {
+  color: #0b1324;
+  font-weight: 700;
+}
+
 .profile-password-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
