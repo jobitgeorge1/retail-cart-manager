@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0f766e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -16,41 +16,37 @@
 <body class="app-page">
   <div class="container">
     <div class="topbar">
-      <h1>Personal Cart Manager</h1>
-      <div class="account-corner">
-        <span id="userName" class="account-name">-</span>
-        <button id="logoutBtn" class="secondary account-logout">Logout</button>
+      <div>
+        <h1>Personal Cart Manager</h1>
       </div>
-    </div>
-    <p id="syncStatus" class="muted" style="margin-top: 0; margin-bottom: 12px;">Checking session...</p>
-
-    <div class="nav tab-nav">
-      <div class="menu-wrap">
-        <button id="menuMoreBtn" class="secondary menu-trigger" aria-expanded="false" aria-label="Open menu" title="Menu">
-          <svg viewBox="0 0 24 24" class="menu-hamburger" aria-hidden="true">
-            <path d="M4 7h16M4 12h16M4 17h16"></path>
-          </svg>
+      <div class="account-corner">
+        <button id="menuMoreBtn" class="secondary menu-trigger" aria-expanded="false" aria-label="Open account menu" title="Account">
+          <span id="userName" class="account-name">-</span>
+          <span class="account-chevron">⌄</span>
         </button>
         <div id="menuDropdown" class="menu-dropdown hidden">
-          <button id="menuPriceList" class="menu-item" type="button">
-            <span class="menu-item-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"></path></svg>
-            </span>
-            <span>Price List</span>
-          </button>
           <button id="menuHistory" class="menu-item" type="button">
             <span class="menu-item-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M12 6v6l4 2M12 3a9 9 0 1 0 9 9"></path></svg>
             </span>
             <span>History</span>
           </button>
-          <button id="menuProfile" class="menu-item" type="button">
+          <button id="logoutBtn" class="menu-item menu-item-danger" type="button">
             <span class="menu-item-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm-7 8a7 7 0 0 1 14 0"></path></svg>
+              <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
             </span>
-            <span>Profile</span>
+            <span>Logout</span>
           </button>
         </div>
+      </div>
+    </div>
+    <p id="syncStatus" class="muted" style="margin-top: 0; margin-bottom: 12px;">Checking session...</p>
+
+    <div class="nav tab-nav">
+      <div class="segmented-nav" role="tablist" aria-label="Main tabs">
+        <button id="tabCartBtn" class="seg-btn active" type="button">Carts</button>
+        <button id="tabPriceListBtn" class="seg-btn" type="button">Price List</button>
+        <button id="tabProfileBtn" class="seg-btn" type="button">Profile</button>
       </div>
       <div id="cartTabs" class="tab-bar"></div>
       <button id="addCartTabBtn" class="add-tab" title="Add Cart">＋</button>
@@ -72,7 +68,7 @@
 
       <div class="card">
         <h2 class="section-title">Price List</h2>
-        <div class="table-scroll">
+        <div class="table-scroll cart-table-scroll">
           <table>
             <thead>
               <tr>

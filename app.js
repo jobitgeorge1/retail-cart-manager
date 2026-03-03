@@ -21,12 +21,13 @@ const GOOGLE_IMAGE_CX = String(window.GOOGLE_IMAGE_CX || "").trim();
 const userName = document.getElementById("userName");
 const logoutBtn = document.getElementById("logoutBtn");
 const syncStatus = document.getElementById("syncStatus");
+const tabCartBtn = document.getElementById("tabCartBtn");
+const tabPriceListBtn = document.getElementById("tabPriceListBtn");
+const tabProfileBtn = document.getElementById("tabProfileBtn");
 
-const menuPriceList = document.getElementById("menuPriceList");
 const menuMoreBtn = document.getElementById("menuMoreBtn");
 const menuDropdown = document.getElementById("menuDropdown");
 const menuHistory = document.getElementById("menuHistory");
-const menuProfile = document.getElementById("menuProfile");
 const cartTabs = document.getElementById("cartTabs");
 const addCartTabBtn = document.getElementById("addCartTabBtn");
 const viewPriceList = document.getElementById("viewPriceList");
@@ -89,7 +90,7 @@ const resetPasswordBtn = document.getElementById("resetPasswordBtn");
 const profilePasswordStatus = document.getElementById("profilePasswordStatus");
 
 document.addEventListener("click", (e) => {
-  if (!e.target.closest(".menu-wrap")) {
+  if (!e.target.closest(".account-corner")) {
     closeMenuDropdown();
   }
   if (!e.target.closest(".combo") && !e.target.closest(".modal-card")) {
@@ -97,10 +98,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-menuPriceList.addEventListener("click", () => {
-  closeMenuDropdown();
-  switchView("priceList");
-});
 menuMoreBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   toggleMenuDropdown();
@@ -109,11 +106,10 @@ menuHistory.addEventListener("click", () => {
   closeMenuDropdown();
   switchView("history");
 });
-menuProfile.addEventListener("click", () => {
-  closeMenuDropdown();
-  switchView("profile");
-});
 logoutBtn.addEventListener("click", logout);
+tabCartBtn.addEventListener("click", () => switchView("cart"));
+tabPriceListBtn.addEventListener("click", () => switchView("priceList"));
+tabProfileBtn.addEventListener("click", () => switchView("profile"));
 
 addCartTabBtn.addEventListener("click", () => {
   const cart = { id: crypto.randomUUID(), name: "New Cart", items: [] };
@@ -583,16 +579,16 @@ function switchView(view) {
   const isHistory = view === "history";
   const isProfile = view === "profile";
   const isCart = !isPriceList && !isHistory && !isProfile;
-  const isMenuView = isPriceList || isHistory || isProfile;
-
-  menuPriceList.classList.toggle("active", isPriceList);
-  menuMoreBtn.classList.toggle("active", isMenuView);
+  menuMoreBtn.classList.toggle("active", isHistory);
   menuHistory.classList.toggle("active", isHistory);
-  menuProfile.classList.toggle("active", isProfile);
+  tabCartBtn.classList.toggle("active", isCart);
+  tabPriceListBtn.classList.toggle("active", isPriceList);
+  tabProfileBtn.classList.toggle("active", isProfile);
   viewPriceList.classList.toggle("hidden", !isPriceList);
   viewHistory.classList.toggle("hidden", !isHistory);
   viewProfile.classList.toggle("hidden", !isProfile);
   viewCart.classList.toggle("hidden", !isCart);
+  closeMenuDropdown();
 
   renderCartTabs();
   if (isHistory) renderHistoryView();

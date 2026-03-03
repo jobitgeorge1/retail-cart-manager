@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Personal Cart Manager",
+    "slug": "personal-cart-manager-native",
+    "version": "1.0.0",
+    "newArchEnabled": false,
+    "orientation": "portrait",
+    "icon": "./assets/app-icon.png",
+    "scheme": "personalcartmanager",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "icon": "./assets/app-icon.png",
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jobit.personalcartmanager.native"
+    },
+    "android": {
+      "package": "com.jobit.personalcartmanager.native"
+    }
+  }
+}
